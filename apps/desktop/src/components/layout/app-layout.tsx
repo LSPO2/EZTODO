@@ -8,14 +8,19 @@ import { Toolbar } from './toolbar'
 import { TaskList, TaskDetail } from '../task'
 import { AIQuickAdd } from '../ai'
 import { ViewHeader } from '../view'
+import { TrashPage } from '../trash'
+import { DataPage } from '../data'
 import { useTaskStore, useProjectStore, useTagStore } from '../../stores'
 import type { Task } from '../../lib/repositories'
+
+type Page = 'tasks' | 'trash' | 'data'
 
 export const AppLayout: React.FC = () => {
   const { loadTasks, currentTask, setCurrentTask, currentView, tasks } = useTaskStore()
   const { loadProjects } = useProjectStore()
   const { loadTags } = useTagStore()
   const [showDetail, setShowDetail] = useState(false)
+  const [currentPage, setCurrentPage] = useState<Page>('tasks')
 
   // Load initial data
   useEffect(() => {
@@ -43,32 +48,48 @@ export const AppLayout: React.FC = () => {
     loadTasks()
   }
 
+  const handleNavigate = (page: string) => {
+    setCurrentPage(page as Page)
+  }
+
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar onNavigate={handleNavigate} />
 
       <div className="main-content">
-        <Toolbar />
+        {currentPage === 'tasks' && (
+          <>
+            <Toolbar />
+            <div className="content-area">
+              <ViewHeader view={currentView} taskCount={tasks.length} />
+              <AIQuickAdd onTaskCreated={handleTaskCreated} />
+              <div className="task-area">
+                <TaskList
+                  onTaskSelect={handleTaskSelect}
+                  onTaskEdit={handleTaskEdit}
+                />
+                {showDetail && currentTask && (
+                  <TaskDetail
+                    task={currentTask}
+                    onClose={handleCloseDetail}
+                  />
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
-        <div className="content-area">
-          <ViewHeader view={currentView} taskCount={tasks.length} />
-
-          <AIQuickAdd onTaskCreated={handleTaskCreated} />
-
-          <div className="task-area">
-            <TaskList
-              onTaskSelect={handleTaskSelect}
-              onTaskEdit={handleTaskEdit}
-            />
-
-            {showDetail && currentTask && (
-              <TaskDetail
-                task={currentTask}
-                onClose={handleCloseDetail}
-              />
-            )}
+        {currentPage === 'trash' && (
+          <div className="content-area">
+            <TrashPage />
           </div>
-        </div>
+        )}
+
+        {currentPage === 'data' && (
+          <div className="content-area">
+            <DataPage />
+          </div>
+        )}
       </div>
     </div>
   )

@@ -6,7 +6,11 @@ import React from 'react'
 import { useTaskStore, useProjectStore } from '../../stores'
 import type { ViewType } from '../../lib/repositories'
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onNavigate?: (page: string) => void
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
   const { currentView, setView } = useTaskStore()
   const { projects } = useProjectStore()
 
@@ -63,6 +67,14 @@ export const Sidebar: React.FC = () => {
           <div className="nav-item add-project">
             <span className="icon">+</span>
             <span className="label">添加项目</span>
+          </div>
+        </div>
+
+        <div className="nav-section">
+          <div className="nav-section-title">工具</div>
+          <div className="nav-item" onClick={() => onNavigate?.('data')}>
+            <span className="icon">📦</span>
+            <span className="label">数据管理</span>
           </div>
         </div>
       </nav>
