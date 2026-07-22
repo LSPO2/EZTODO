@@ -9,6 +9,7 @@ import App from './App.tsx'
 import { initializeWindow } from './lib/window'
 import { initializeTray } from './lib/tray'
 import { initializeShortcuts } from './lib/shortcuts'
+import { reminderScheduler } from './lib/reminder'
 
 // Initialize application
 async function initializeApp() {
@@ -22,10 +23,29 @@ async function initializeApp() {
     // Initialize keyboard shortcuts
     await initializeShortcuts()
 
+    // Initialize reminder scheduler
+    await reminderScheduler.start()
+
+    // Set up reminder notification handler
+    reminderScheduler.onTrigger((reminder) => {
+      // Show notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('EZTODO 提醒', {
+          body: reminder.taskTitle,
+          icon: '/favicon.ico',
+        })
+      }
+    })
+
     console.log('Application initialized successfully')
   } catch (error) {
     console.error('Failed to initialize application:', error)
   }
+}
+
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission()
 }
 
 // Initialize app before rendering

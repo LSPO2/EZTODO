@@ -7,6 +7,8 @@ import type { Task, UpdateTaskRequest } from '../../lib/repositories'
 import { useTaskStore } from '../../stores'
 import { SubtaskList } from './subtask-list'
 import { AddSubtask } from './add-subtask'
+import { ReminderList } from '../reminder/reminder-list'
+import { RecurrenceEditor } from '../reminder/recurrence-editor'
 
 interface TaskDetailProps {
   task: Task
@@ -138,6 +140,14 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose }) => {
           placeholder="添加备注..."
           rows={4}
         />
+      </div>
+
+      <div className="detail-section">
+        <ReminderList taskId={task.id} />
+      </div>
+
+      <div className="detail-section">
+        <RecurrenceEditor taskId={task.id} />
       </div>
 
       <div className="detail-section">

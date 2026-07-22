@@ -1028,3 +1028,255 @@ body {
     z-index: 1000;
   }
 }
+
+/* Reminder List */
+.reminder-list {
+  margin-top: 10px;
+}
+
+.reminder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.reminder-header h4 {
+  font-size: 13px;
+  color: var(--text-light);
+  margin: 0;
+}
+
+.reminder-count {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.reminder-items {
+  margin-bottom: 10px;
+}
+
+.reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.reminder-item.snoozed {
+  background: #fff3cd;
+}
+
+.reminder-item.triggered {
+  background: #f8d7da;
+}
+
+.reminder-info {
+  flex: 1;
+}
+
+.reminder-time {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.reminder-status {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.reminder-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.reminder-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.btn-confirm:hover {
+  background: #d4edda;
+}
+
+.btn-remove:hover {
+  background: #f8d7da;
+}
+
+.reminder-add {
+  display: flex;
+  gap: 10px;
+}
+
+.reminder-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.btn-add-reminder {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-add-reminder:hover {
+  background: var(--primary-dark);
+}
+
+.btn-add-reminder:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+/* Recurrence Editor */
+.recurrence-editor {
+  margin-top: 10px;
+}
+
+.recurrence-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.recurrence-header:hover {
+  color: var(--primary);
+}
+
+.recurrence-icon {
+  font-size: 14px;
+}
+
+.recurrence-label {
+  flex: 1;
+}
+
+.expand-icon {
+  font-size: 10px;
+  color: var(--text-light);
+}
+
+.recurrence-panel {
+  background: var(--bg);
+  padding: 15px;
+  border-radius: 6px;
+  margin-top: 10px;
+}
+
+.recurrence-section {
+  margin-bottom: 15px;
+}
+
+.recurrence-section label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 5px;
+}
+
+.recurrence-section select,
+.recurrence-section input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.interval-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.interval-input input {
+  width: 60px;
+  text-align: center;
+}
+
+.days-selector {
+  display: flex;
+  gap: 5px;
+}
+
+.day-button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-button:hover {
+  border-color: var(--primary);
+}
+
+.day-button.selected {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.recurrence-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.recurrence-actions .btn-save {
+  flex: 1;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.recurrence-actions .btn-save:hover {
+  background: var(--primary-dark);
+}
+
+.recurrence-actions .btn-delete {
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.recurrence-actions .btn-delete:hover {
+  background: #c0392b;
+}
+
+/* Reminder Loading */
+.reminder-loading {
+  text-align: center;
+  padding: 10px;
+  color: var(--text-light);
+  font-size: 12px;
+}
