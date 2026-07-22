@@ -13,3 +13,5 @@ export { getNextOccurrence, generateOccurrences, isRecurrenceDate, createRecurre
 export type { RecurrenceConfig, RecurrenceFrequency } from './recurrence'
 export { ReminderScheduler, reminderScheduler } from './reminder'
 export type { ReminderInfo, ReminderStatus, SnoozeDuration } from './reminder'
+export { SyncManager, syncManager } from './sync'
+export type { SyncState, SyncStatus, SyncConfig } from './sync'
