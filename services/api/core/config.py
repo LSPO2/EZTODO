@@ -44,11 +44,14 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # AI
-    AI_PROVIDER: str = "openai"
-    AI_API_BASE: str = "https://api.openai.com/v1"
+    # AI - DeepSeek V4 Flash
+    AI_PROVIDER: str = "deepseek"
+    AI_API_BASE: str = "https://api.deepseek.com/v1"
     AI_API_KEY: str = ""
-    AI_MODEL: str = "gpt-4o-mini"
+    AI_MODEL: str = "deepseek-chat"
+    AI_TIMEOUT: int = 30
+    AI_MAX_RETRIES: int = 3
+    AI_MAX_TOKENS: int = 2000
 
 
 @lru_cache()

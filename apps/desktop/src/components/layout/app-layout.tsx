@@ -5,7 +5,8 @@
 import React, { useEffect, useState } from 'react'
 import { Sidebar } from './sidebar'
 import { Toolbar } from './toolbar'
-import { TaskList, TaskDetail, QuickAdd } from '../task'
+import { TaskList, TaskDetail } from '../task'
+import { AIQuickAdd } from '../ai'
 import { ViewHeader } from '../view'
 import { useTaskStore, useProjectStore, useTagStore } from '../../stores'
 import type { Task } from '../../lib/repositories'
@@ -52,7 +53,7 @@ export const AppLayout: React.FC = () => {
         <div className="content-area">
           <ViewHeader view={currentView} taskCount={tasks.length} />
 
-          <QuickAdd onTaskCreated={handleTaskCreated} />
+          <AIQuickAdd onTaskCreated={handleTaskCreated} />
 
           <div className="task-area">
             <TaskList

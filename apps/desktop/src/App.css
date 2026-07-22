@@ -1280,3 +1280,327 @@ body {
   color: var(--text-light);
   font-size: 12px;
 }
+
+/* AI Quick Add */
+.ai-quick-add {
+  padding: 15px 20px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+}
+
+.quick-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quick-add-input-wrapper {
+  display: flex;
+  gap: 10px;
+}
+
+.quick-add-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+
+.quick-add-input:focus {
+  border-color: var(--primary);
+}
+
+.quick-add-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-toggle {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.ai-toggle:hover {
+  background: var(--bg);
+}
+
+.ai-toggle.active {
+  background: #9b59b6;
+  border-color: #9b59b6;
+}
+
+.btn-add {
+  padding: 10px 20px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-add:hover {
+  background: var(--primary-dark);
+}
+
+.btn-add:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.quick-add-error {
+  color: var(--danger);
+  font-size: 12px;
+  padding: 5px 0;
+}
+
+/* AI Loading */
+.ai-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px;
+  color: var(--text-light);
+}
+
+.ai-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* AI Confirm Card */
+.ai-confirm-card {
+  margin-top: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  padding: 20px;
+  color: white;
+}
+
+.ai-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.ai-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-icon {
+  font-size: 20px;
+}
+
+.ai-card-title h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.confidence-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ai-warnings {
+  margin-bottom: 15px;
+}
+
+.warning-item {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.ai-tasks-list {
+  margin-bottom: 15px;
+}
+
+.ai-task-item {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.ai-task-header {
+  padding: 12px 15px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-task-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ai-task-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-task-icon {
+  font-size: 14px;
+}
+
+.ai-task-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ai-task-priority {
+  font-size: 12px;
+}
+
+.ai-task-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.ai-task-details {
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ai-task-field {
+  margin-bottom: 12px;
+}
+
+.ai-task-field label {
+  display: block;
+  font-size: 11px;
+  opacity: 0.8;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.ai-task-field input,
+.ai-task-field select,
+.ai-task-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 13px;
+}
+
+.ai-task-field input::placeholder,
+.ai-task-field textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ai-task-field textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.ai-task-subtasks {
+  margin-top: 10px;
+}
+
+.ai-task-subtasks label {
+  display: block;
+  font-size: 11px;
+  opacity: 0.8;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.ai-task-subtasks ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ai-task-subtasks li {
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.ai-task-uncertain {
+  margin-top: 10px;
+}
+
+.ai-task-uncertain label {
+  display: block;
+  font-size: 11px;
+  opacity: 0.8;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.uncertain-tags {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.uncertain-tag {
+  padding: 3px 8px;
+  background: rgba(231, 76, 60, 0.3);
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.ai-card-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.ai-card-actions .btn-cancel {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ai-card-actions .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.ai-card-actions .btn-confirm {
+  padding: 10px 20px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ai-card-actions .btn-confirm:hover {
+  background: #229954;
+}

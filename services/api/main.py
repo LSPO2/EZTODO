@@ -10,6 +10,7 @@ from core.database import init_db, close_db
 from api.v1.health import router as health_router
 from api.v1.auth import router as auth_router
 from api.v1.sync import router as sync_router
+from api.v1.ai import router as ai_router
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(sync_router, prefix="/api/v1")
+app.include_router(ai_router, prefix="/api/v1")
 
 
 @app.get("/")
