@@ -21,6 +21,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "uuid": "^14.0.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^9.0.0",
     "typescript": "~6.0.2",
