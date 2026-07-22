@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EZTODO 原型设计</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+
+        /* 页面切换 */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* 导航 */
+        .nav {
+            background: #2c3e50; color: white; padding: 15px 20px;
+            display: flex; align-items: center; gap: 20px;
+        }
+        .nav h1 { font-size: 18px; }
+        .nav-links { display: flex; gap: 10px; }
+        .nav-links a {
+            color: #ecf0f1; text-decoration: none; padding: 5px 10px;
+            border-radius: 4px; font-size: 13px; cursor: pointer;
+        }
+        .nav-links a:hover, .nav-links a.active { background: #34495e; }
+
+        /* 登录页 */
+        .login-container {
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-box {
+            background: white; padding: 40px; border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 400px;
+        }
+        .login-box h2 { margin-bottom: 20px; color: #2c3e50; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 14px; color: #555; }
+        .form-group input {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+        }
+        .btn {
+            width: 100%; padding: 10px; border: none; border-radius: 4px;
+            font-size: 14px; cursor: pointer; margin-top: 10px;
+        }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn-secondary:hover { background: #7f8c8d; }
+
+        /* 主界面布局 */
+        .app-layout { display: flex; height: 100vh; }
+        .sidebar {
+            width: 240px; background: #2c3e50; color: white;
+            display: flex; flex-direction: column;
+        }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid #34495e; }
+        .sidebar-nav { flex: 1; padding: 10px; }
+        .nav-item {
+            padding: 10px 15px; border-radius: 4px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px; font-size: 14px;
+        }
+        .nav-item:hover { background: #34495e; }
+        .nav-item.active { background: #3498db; }
+        .nav-item .icon { width: 20px; text-align: center; }
+        .nav-item .count {
+            margin-left: auto; background: #34495e; padding: 2px 8px;
+            border-radius: 10px; font-size: 12px;
+        }
+
+        /* 主内容区 */
+        .main-content { flex: 1; display: flex; flex-direction: column; }
+        .toolbar {
+            padding: 15px 20px; background: white; border-bottom: 1px solid #ddd;
+            display: flex; align-items: center; gap: 15px;
+        }
+        .search-box {
+            flex: 1; padding: 8px 12px; border: 1px solid #ddd;
+            border-radius: 4px; font-size: 14px;
+        }
+        .task-area { flex: 1; display: flex; overflow: hidden; }
+        .task-list { flex: 1; overflow-y: auto; padding: 15px; }
+        .task-detail { width: 350px; border-left: 1px solid #ddd; background: white; }
+
+        /* 任务卡片 */
+        .task-card {
+            background: white; border-radius: 6px; padding: 12px 15px;
+            margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer; border-left: 4px solid transparent;
+        }
+        .task-card:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+        .task-card.p1 { border-left-color: #e74c3c; }
+        .task-card.p2 { border-left-color: #e67e22; }
+        .task-card.p3 { border-left-color: #f1c40f; }
+        .task-card.p4 { border-left-color: #3498db; }
+        .task-card .header { display: flex; align-items: center; gap: 10px; }
+        .task-card .checkbox { width: 18px; height: 18px; border: 2px solid #ddd; border-radius: 50%; cursor: pointer; }
+        .task-card .checkbox.done { background: #27ae60; border-color: #27ae60; }
+        .task-card .title { flex: 1; font-size: 14px; }
+        .task-card .title.done { text-decoration: line-through; color: #95a5a6; }
+        .task-card .meta { margin-top: 8px; font-size: 12px; color: #7f8c8d; display: flex; gap: 10px; }
+        .task-card .meta .tag { background: #ecf0f1; padding: 2px 6px; border-radius: 3px; }
+
+        /* 快速添加栏 */
+        .quick-add {
+            background: white; border-bottom: 1px solid #ddd;
+            padding: 15px 20px; display: flex; gap: 10px;
+        }
+        .quick-add input {
+            flex: 1; padding: 10px; border: 1px solid #ddd;
+            border-radius: 4px; font-size: 14px;
+        }
+        .quick-add .ai-btn {
+            padding: 10px 15px; background: #9b59b6; color: white;
+            border: none; border-radius: 4px; cursor: pointer; font-size: 14px;
+        }
+        .quick-add .ai-btn:hover { background: #8e44ad; }
+
+        /* AI 确认卡片 */
+        .ai-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px; padding: 20px; color: white; margin-bottom: 15px;
+        }
+        .ai-card h3 { margin-bottom: 15px; }
+        .ai-card .parsed-task {
+            background: rgba(255,255,255,0.1); padding: 10px; border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .ai-card .actions { display: flex; gap: 10px; margin-top: 15px; }
+        .ai-card .btn-confirm { background: #27ae60; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        .ai-card .btn-edit { background: rgba(255,255,255,0.2); color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; }
+
+        /* 任务详情面板 */
+        .detail-header { padding: 20px; border-bottom: 1px solid #ddd; }
+        .detail-header h2 { font-size: 18px; margin-bottom: 10px; }
+        .detail-section { padding: 15px 20px; border-bottom: 1px solid #f0f0f0; }
+        .detail-section h4 { font-size: 13px; color: #7f8c8d; margin-bottom: 10px; }
+        .detail-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .detail-row label { width: 80px; font-size: 13px; color: #555; }
+        .detail-row input, .detail-row select, .detail-row textarea {
+            flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;
+        }
+        .detail-row textarea { min-height: 60px; resize: vertical; }
+
+        /* 重复规则编辑器 */
+        .recurrence-editor { background: #f8f9fa; padding: 15px; border-radius: 6px; }
+        .recurrence-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .recurrence-option {
+            padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;
+            cursor: pointer; font-size: 13px;
+        }
+        .recurrence-option.selected { background: #3498db; color: white; border-color: #3498db; }
+
+        /* 提醒编辑器 */
+        .reminder-list { list-style: none; }
+        .reminder-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .reminder-item input { flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; }
+        .reminder-item .remove { color: #e74c3c; cursor: pointer; }
+
+        /* 同步状态 */
+        .sync-status {
+            padding: 8px 12px; border-radius: 4px; font-size: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .sync-status.synced { background: #d4edda; color: #155724; }
+        .sync-status.syncing { background: #cce5ff; color: #004085; }
+        .sync-status.error { background: #f8d7da; color: #721c24; }
+        .sync-status .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .sync-status.synced .dot { background: #28a745; }
+        .sync-status.syncing .dot { background: #007bff; animation: pulse 1s infinite; }
+        .sync-status.error .dot { background: #dc3545; }
+        @keyframes pulse { 50% { opacity: 0.5; } }
+
+        /* 页面标题 */
+        .page-header { padding: 20px; background: white; border-bottom: 1px solid #ddd; }
+        .page-header h2 { font-size: 20px; color: #2c3e50; }
+        .page-header p { font-size: 13px; color: #7f8c8d; margin-top: 5px; }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center; padding: 60px 20px; color: #95a5a6;
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 15px; }
+        .empty-state h3 { margin-bottom: 10px; }
+        .empty-state p { font-size: 14px; }
+
+        /* 子任务 */
+        .subtask { margin-left: 30px; }
+        .subtask .task-card { border-left: 2px solid #bdc3c7; }
+        .progress { font-size: 12px; color: #7f8c8d; }
+
+        /* 回收站 */
+        .trash-item {
+            background: white; padding: 15px; border-radius: 6px;
+            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .trash-item .info { flex: 1; }
+        .trash-item .actions { display: flex; gap: 10px; }
+        .trash-item .btn-restore { background: #27ae60; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .trash-item .btn-delete { background: #e74c3c; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="nav">
+        <h1>📋 EZTODO 原型</h1>
+        <div class="nav-links">
+            <a onclick="showPage('login')" class="active">登录页</a>
+            <a onclick="showPage('main')">主界面</a>
+            <a onclick="showPage('inbox')">收件箱</a>
+            <a onclick="showPage('today')">今天</a>
+            <a onclick="showPage('ai')">AI 创建</a>
+            <a onclick="showPage('detail')">任务详情</a>
+            <a onclick="showPage('trash')">回收站</a>
+        </div>
+    </div>
+
+    <!-- 登录页 -->
+    <div id="login" class="page active">
+        <div class="login-container">
+            <div class="login-box">
+                <h2>🔐 连接到服务器</h2>
+                <div class="form-group">
+                    <label>服务器地址</label>
+                    <input type="text" placeholder="https://eztodo.example.com" value="http://localhost:8000">
+                </div>
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" placeholder="请输入用户名" value="admin">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" placeholder="请输入密码" value="••••••••">
+                </div>
+                <button class="btn btn-primary">登录</button>
+                <button class="btn btn-secondary" style="margin-top: 10px;">离线使用</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="main" class="page">
+        <div class="app-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 EZTODO</h3>
+                    <div class="sync-status synced" style="margin-top: 10px;">
+                        <div class="dot"></div>
+                        已同步
+                    </div>
+                </div>
+                <div class="sidebar-nav">
+                    <div class="nav-item">
+                        <span class="icon">📥</span>
+                        <span>收件箱</span>
+                        <span class="count">5</span>
+                    </div>
+                    <div class="nav-item active">
+                        <span class="icon">📅</span>
+                        <span>今天</span>
+                        <span class="count">3</span>
+                    </div>
+                    <div class="nav-item">
+                        <span class="icon">📆</span>
+                        <span>未来 7 天</span>
+                        <span class="count">8</span>
+                    </div>
+                    <div class="nav-item">
+                        <span class="icon">⚠️</span>
+                        <span>已逾期</span>
+                        <span class="count" style="background: #e74c3c;">2</span>
+                    </div>
+                    <div class="nav-item">
+                        <span class="icon">✅</span>
+                        <span>已完成</span>
+                        <span class="count">12</span>
+                    </div>
+                    <div class="nav-item">
+                        <span class="icon">🗑️</span>
+                        <span>回收站</span>
+                    </div>
+                    <div style="border-top: 1px solid #34495e; margin: 10px 0;"></div>
+                    <div class="nav-item">
+                        <span class="icon">📁</span>
+                        <span>工作</span>
+                        <span class="count">6</span>
+                    </div>
+                    <div class="nav-item">
+                        <span class="icon">📚</span>
+                        <span>学习</span>
+                        <span class="count">4</span>
+                    </div>
+                    <div class="nav-item">
+                        <span class="icon">🏠</span>
+                        <span>生活</span>
+                        <span class="count">3</span>
+                    </div>
+                </div>
+            </div>
+            <div class="main-content">
+                <div class="toolbar">
+                    <input type="text" class="search-box" placeholder="🔍 搜索任务...">
+                    <button class="btn" style="width: auto; padding: 8px 15px;">筛选</button>
+                    <button class="btn" style="width: auto; padding: 8px 15px;">排序</button>
+                </div>
+                <div class="quick-add">
+                    <input type="text" placeholder="添加任务... (输入自然语言，AI 自动解析)">
+                    <button class="ai-btn">🤖 AI 创建</button>
+                    <button class="btn btn-primary" style="width: auto; padding: 10px 20px;">添加</button>
+                </div>
+                <div class="task-area">
+                    <div class="task-list">
+                        <div class="page-header">
+                            <h2>📅 今天</h2>
+                            <p>2026年7月22日 星期三</p>
+                        </div>
+                        <div style="padding: 15px;">
+                            <div class="task-card p1">
+                                <div class="header">
+                                    <div class="checkbox"></div>
+                                    <div class="title">提交项目报告</div>
+                                    <span style="color: #e74c3c;">🔴</span>
+                                </div>
+                                <div class="meta">
+                                    <span class="tag">工作</span>
+                                    <span>⏰ 15:00</span>
+                                    <span>📍 公司</span>
+                                </div>
+                            </div>
+                            <div class="task-card p2">
+                                <div class="header">
+                                    <div class="checkbox"></div>
+                                    <div class="title">准备明天的会议材料</div>
+                                    <span style="color: #e67e22;">🟠</span>
+                                </div>
+                                <div class="meta">
+                                    <span class="tag">工作</span>
+                                    <span>⏰ 17:00</span>
+                                </div>
+                            </div>
+                            <div class="task-card p3">
+                                <div class="header">
+                                    <div class="checkbox"></div>
+                                    <div class="title">买菜做饭</div>
+                                    <span style="color: #f1c40f;">🟡</span>
+                                </div>
+                                <div class="meta">
+                                    <span class="tag">生活</span>
+                                    <span>⏰ 18:30</span>
+                                </div>
+                            </div>
+                            <div class="task-card">
+                                <div class="header">
+                                    <div class="checkbox done"></div>
+                                    <div class="title done">回复邮件</div>
+                                </div>
+                                <div class="meta">
+                                    <span class="tag">工作</span>
+                                    <span style="color: #27ae60;">✓ 已完成</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="task-detail">
+                        <div class="detail-header">
+                            <h2>提交项目报告</h2>
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">P1</span>
+                                <span style="background: #3498db; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">工作</span>
+                            </div>
+                        </div>
+                        <div class="detail-section">
+                            <h4>基本信息</h4>
+                            <div class="detail-row">
+                                <label>计划时间</label>
+                                <input type="datetime-local" value="2026-07-22T15:00">
+                            </div>
+                            <div class="detail-row">
+                                <label>截止时间</label>
+                                <input type="datetime-local" value="2026-07-22T18:00">
+                            </div>
+                            <div class="detail-row">
+                                <label>优先级</label>
+                                <select>
+                                    <option value="p1" selected>🔴 P1 - 紧急重要</option>
+                                    <option value="p2">🟠 P2 - 重要不紧急</option>
+                                    <option value="p3">🟡 P3 - 紧急不重要</option>
+                                    <option value="p4">🔵 P4 - 不紧急不重要</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="detail-section">
+                            <h4>提醒</h4>
+                            <ul class="reminder-list">
+                                <li class="reminder-item">
+                                    <input type="datetime-local" value="2026-07-22T14:00">
+                                    <span class="remove">✕</span>
+                                </li>
+                                <li class="reminder-item">
+                                    <input type="datetime-local" value="2026-07-21T15:00">
+                                    <span class="remove">✕</span>
+                                </li>
+                            </ul>
+                            <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 12px;">+ 添加提醒</button>
+                        </div>
+                        <div class="detail-section">
+                            <h4>子任务</h4>
+                            <div class="task-card subtask">
+                                <div class="header">
+                                    <div class="checkbox done"></div>
+                                    <div class="title done">整理数据</div>
+                                </div>
+                            </div>
+                            <div class="task-card subtask">
+                                <div class="header">
+                                    <div class="checkbox"></div>
+                                    <div class="title">撰写报告正文</div>
+                                </div>
+                            </div>
+                            <div class="task-card subtask">
+                                <div class="header">
+                                    <div class="checkbox"></div>
+                                    <div class="title">制作图表</div>
+                                </div>
+                            </div>
+                            <div class="progress">进度: 1/3</div>
+                        </div>
+                        <div class="detail-section">
+                            <h4>备注</h4>
+                            <textarea placeholder="添加备注...">需要包含 Q2 的销售数据和市场分析</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 收件箱 -->
+    <div id="inbox" class="page">
+        <div class="app-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 EZTODO</h3>
+                </div>
+                <div class="sidebar-nav">
+                    <div class="nav-item active">
+                        <span class="icon">📥</span>
+                        <span>收件箱</span>
+                        <span class="count">5</span>
+                    </div>
+                    <div class="nav-item">
+                        <span class="icon">📅</span>
+                        <span>今天</span>
+                    </div>
+                </div>
+            </div>
+            <div class="main-content">
+                <div class="page-header">
+                    <h2>📥 收件箱</h2>
+                    <p>未分类的任务</p>
+                </div>
+                <div class="task-list">
+                    <div class="task-card">
+                        <div class="header">
+                            <div class="checkbox"></div>
+                            <div class="title">整理书架</div>
+                        </div>
+                        <div class="meta">
+                            <span>创建于 2天前</span>
+                        </div>
+                    </div>
+                    <div class="task-card">
+                        <div class="header">
+                            <div class="checkbox"></div>
+                            <div class="title">给妈妈打电话</div>
+                        </div>
+                        <div class="meta">
+                            <span>创建于 3天前</span>
+                        </div>
+                    </div>
+                    <div class="task-card">
+                        <div class="header">
+                            <div class="checkbox"></div>
+                            <div class="title">预约牙医</div>
+                        </div>
+                        <div class="meta">
+                            <span>创建于 5天前</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 今天 -->
+    <div id="today" class="page">
+        <div class="app-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 EZTODO</h3>
+                </div>
+                <div class="sidebar-nav">
+                    <div class="nav-item">
+                        <span class="icon">📥</span>
+                        <span>收件箱</span>
+                    </div>
+                    <div class="nav-item active">
+                        <span class="icon">📅</span>
+                        <span>今天</span>
+                        <span class="count">3</span>
+                    </div>
+                </div>
+            </div>
+            <div class="main-content">
+                <div class="page-header">
+                    <h2>📅 今天</h2>
+                    <p>2026年7月22日 星期三</p>
+                </div>
+                <div class="task-list">
+                    <div class="task-card p1">
+                        <div class="header">
+                            <div class="checkbox"></div>
+                            <div class="title">提交项目报告</div>
+                            <span style="color: #e74c3c;">🔴</span>
+                        </div>
+                        <div class="meta">
+                            <span class="tag">工作</span>
+                            <span>⏰ 15:00</span>
+                        </div>
+                    </div>
+                    <div class="task-card p2">
+                        <div class="header">
+                            <div class="checkbox"></div>
+                            <div class="title">准备明天的会议材料</div>
+                            <span style="color: #e67e22;">🟠</span>
+                        </div>
+                        <div class="meta">
+                            <span class="tag">工作</span>
+                            <span>⏰ 17:00</span>
+                        </div>
+                    </div>
+                    <div class="task-card p3">
+                        <div class="header">
+                            <div class="checkbox"></div>
+                            <div class="title">买菜做饭</div>
+                            <span style="color: #f1c40f;">🟡</span>
+                        </div>
+                        <div class="meta">
+                            <span class="tag">生活</span>
+                            <span>⏰ 18:30</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI 创建 -->
+    <div id="ai" class="page">
+        <div class="app-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 EZTODO</h3>
+                </div>
+                <div class="sidebar-nav">
+                    <div class="nav-item">
+                        <span class="icon">📥</span>
+                        <span>收件箱</span>
+                    </div>
+                    <div class="nav-item active">
+                        <span class="icon">📅</span>
+                        <span>今天</span>
+                    </div>
+                </div>
+            </div>
+            <div class="main-content">
+                <div class="quick-add">
+                    <input type="text" placeholder="输入自然语言，AI 自动解析..." value="月底完成实习报告，分为整理照片、写正文、调整格式">
+                    <button class="ai-btn">🤖 AI 创建</button>
+                </div>
+                <div class="task-list">
+                    <div class="ai-card">
+                        <h3>🤖 AI 解析结果</h3>
+                        <p style="margin-bottom: 15px; opacity: 0.9;">置信度: 高</p>
+                        <div class="parsed-task">
+                            <div style="font-weight: bold; margin-bottom: 8px;">📄 完成实习报告</div>
+                            <div style="font-size: 13px; opacity: 0.9;">
+                                <div>📅 截止时间: 2026-07-31</div>
+                                <div>📊 优先级: P2</div>
+                            </div>
+                        </div>
+                        <div style="margin-left: 20px;">
+                            <div class="parsed-task" style="background: rgba(255,255,255,0.05);">
+                                <div style="font-size: 13px;">├ 📷 整理照片</div>
+                            </div>
+                            <div class="parsed-task" style="background: rgba(255,255,255,0.05);">
+                                <div style="font-size: 13px;">├ ✍️ 写正文</div>
+                            </div>
+                            <div class="parsed-task" style="background: rgba(255,255,255,0.05);">
+                                <div style="font-size: 13px;">└ 🔧 调整格式</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-confirm">✓ 确认创建</button>
+                            <button class="btn-edit">✏️ 修改后创建</button>
+                        </div>
+                    </div>
+
+                    <div class="ai-card" style="background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%);">
+                        <h3>⚠️ AI 解析结果</h3>
+                        <p style="margin-bottom: 15px; opacity: 0.9;">置信度: 低 - 请确认</p>
+                        <div class="parsed-task">
+                            <div style="font-weight: bold; margin-bottom: 8px;">有空整理桌面</div>
+                            <div style="font-size: 13px; opacity: 0.9;">
+                                <div>❓ 未识别明确时间</div>
+                                <div>❓ 未识别优先级</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-confirm">✓ 确认创建</button>
+                            <button class="btn-edit">✏️ 修改后创建</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务详情 -->
+    <div id="detail" class="page">
+        <div class="app-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 EZTODO</h3>
+                </div>
+                <div class="sidebar-nav">
+                    <div class="nav-item">
+                        <span class="icon">📥</span>
+                        <span>收件箱</span>
+                    </div>
+                    <div class="nav-item active">
+                        <span class="icon">📅</span>
+                        <span>今天</span>
+                    </div>
+                </div>
+            </div>
+            <div class="main-content">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div class="detail-header">
+                        <h2>每周一晚上八点复习高数</h2>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <span style="background: #3498db; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">学习</span>
+                            <span style="background: #9b59b6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">🤖 AI 创建</span>
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <h4>重复规则</h4>
+                        <div class="recurrence-editor">
+                            <div style="margin-bottom: 10px;">
+                                <select style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option>每周</option>
+                                    <option>每天</option>
+                                    <option>每月</option>
+                                    <option>每年</option>
+                                </select>
+                            </div>
+                            <div class="recurrence-options">
+                                <div class="recurrence-option">日</div>
+                                <div class="recurrence-option selected">一</div>
+                                <div class="recurrence-option">二</div>
+                                <div class="recurrence-option">三</div>
+                                <div class="recurrence-option">四</div>
+                                <div class="recurrence-option">五</div>
+                                <div class="recurrence-option">六</div>
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <div class="detail-row">
+                                    <label>开始日期</label>
+                                    <input type="date" value="2026-07-22">
+                                </div>
+                                <div class="detail-row">
+                                    <label>结束日期</label>
+                                    <input type="date" placeholder="永不结束">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <h4>计划时间</h4>
+                        <div class="detail-row">
+                            <label>时间</label>
+                            <input type="time" value="20:00">
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <h4>提醒</h4>
+                        <ul class="reminder-list">
+                            <li class="reminder-item">
+                                <span>每次任务前 30 分钟</span>
+                                <span class="remove">✕</span>
+                            </li>
+                        </ul>
+                        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 12px;">+ 添加提醒</button>
+                    </div>
+                    <div class="detail-section">
+                        <h4>备注</h4>
+                        <textarea placeholder="添加备注...">复习高等数学第七章内容</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 回收站 -->
+    <div id="trash" class="page">
+        <div class="app-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 EZTODO</h3>
+                </div>
+                <div class="sidebar-nav">
+                    <div class="nav-item">
+                        <span class="icon">📥</span>
+                        <span>收件箱</span>
+                    </div>
+                    <div class="nav-item active">
+                        <span class="icon">🗑️</span>
+                        <span>回收站</span>
+                    </div>
+                </div>
+            </div>
+            <div class="main-content">
+                <div class="page-header">
+                    <h2>🗑️ 回收站</h2>
+                    <p>已删除的任务将在 30 天后自动清除</p>
+                </div>
+                <div class="task-list">
+                    <div class="trash-item">
+                        <div class="info">
+                            <div style="font-weight: bold;">旧的项目计划</div>
+                            <div style="font-size: 12px; color: #7f8c8d; margin-top: 5px;">
+                                删除于 2天前 · 剩余 28天 · 包含 3 个子任务
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-restore">恢复</button>
+                            <button class="btn-delete">永久删除</button>
+                        </div>
+                    </div>
+                    <div class="trash-item">
+                        <div class="info">
+                            <div style="font-weight: bold;">过期的待办</div>
+                            <div style="font-size: 12px; color: #7f8c8d; margin-top: 5px;">
+                                删除于 5天前 · 剩余 25天
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-restore">恢复</button>
+                            <button class="btn-delete">永久删除</button>
+                        </div>
+                    </div>
+                    <div class="trash-item">
+                        <div class="info">
+                            <div style="font-weight: bold;">测试任务</div>
+                            <div style="font-size: 12px; color: #7f8c8d; margin-top: 5px;">
+                                删除于 10天前 · 剩余 20天
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-restore">恢复</button>
+                            <button class="btn-delete">永久删除</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showPage(pageId) {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            // 显示目标页面
+            document.getElementById(pageId).classList.add('active');
+            // 更新导航
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
