@@ -109,9 +109,9 @@ export async function getTrashItems(
   query += ` ORDER BY deleted_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
   params.push(limit, offset)
 
-  const result = await db.select<any[]>(query, params)
+  const result = await db.select(query, params)
 
-  return result.map(row => ({
+  return result.map((row: any) => ({
     id: row.id,
     entityType: row.entity_type,
     entityId: row.entity_id,
@@ -130,7 +130,7 @@ export async function getTrashItems(
 export async function getTrashItemByEntityId(entityId: string): Promise<TrashItem | null> {
   const db = await getDatabase()
 
-  const result = await db.select<any[]>(
+  const result = await db.select(
     `SELECT * FROM trash WHERE entity_id = $1`,
     [entityId]
   )
@@ -160,7 +160,7 @@ export async function restoreFromTrash(trashId: string): Promise<boolean> {
   const db = await getDatabase()
 
   // Get trash item
-  const result = await db.select<any[]>(
+  const result = await db.select(
     `SELECT * FROM trash WHERE id = $1`,
     [trashId]
   )
@@ -183,7 +183,7 @@ export async function restoreFromTrash(trashId: string): Promise<boolean> {
       )
 
       // Restore child tasks
-      const childTasks = await db.select<any[]>(
+      const childTasks = await db.select(
         `SELECT id FROM tasks WHERE parent_id = $1 AND deleted_at IS NOT NULL`,
         [trashItem.entity_id]
       )
@@ -241,7 +241,7 @@ export async function permanentlyDelete(trashId: string): Promise<boolean> {
   const db = await getDatabase()
 
   // Get trash item
-  const result = await db.select<any[]>(
+  const result = await db.select(
     `SELECT * FROM trash WHERE id = $1`,
     [trashId]
   )
@@ -297,7 +297,7 @@ export async function emptyTrash(): Promise<number> {
   const db = await getDatabase()
 
   // Get all trash items
-  const items = await db.select<any[]>(`SELECT * FROM trash`)
+  const items = await db.select(`SELECT * FROM trash`)
 
   // Delete each item
   let deleted = 0
@@ -317,7 +317,7 @@ export async function emptyTrash(): Promise<number> {
 export async function getTrashStats(): Promise<TrashStats> {
   const db = await getDatabase()
 
-  const stats = await db.select<any[]>(
+  const stats = await db.select(
     `SELECT
        COUNT(*) as total,
        SUM(CASE WHEN entity_type = 'task' THEN 1 ELSE 0 END) as tasks,
@@ -348,7 +348,7 @@ export async function cleanupExpiredTrash(): Promise<number> {
   const now = new Date().toISOString()
 
   // Get expired items
-  const expiredItems = await db.select<any[]>(
+  const expiredItems = await db.select(
     `SELECT * FROM trash WHERE expires_at <= $1`,
     [now]
   )
@@ -385,7 +385,7 @@ export function getRemainingDays(expiresAt: string): number {
 export async function hasTrashItems(): Promise<boolean> {
   const db = await getDatabase()
 
-  const result = await db.select<{ count: number }[]>(
+  const result = await db.select(
     `SELECT COUNT(*) as count FROM trash WHERE expires_at > $1`,
     [new Date().toISOString()]
   )

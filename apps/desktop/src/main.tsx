@@ -6,14 +6,24 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { initializeWindow } from './lib/window'
-import { initializeTray } from './lib/tray'
-import { initializeShortcuts } from './lib/shortcuts'
-import { reminderScheduler } from './lib/reminder'
 
-// Initialize application
+// Check if running in Tauri
+const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined
+
+// Initialize application (only in Tauri)
 async function initializeApp() {
+  if (!isTauri) {
+    console.log('Running in browser mode (Tauri APIs disabled)')
+    return
+  }
+
   try {
+    // Dynamic imports for Tauri-only modules
+    const { initializeWindow } = await import('./lib/window')
+    const { initializeTray } = await import('./lib/tray')
+    const { initializeShortcuts } = await import('./lib/shortcuts')
+    const { reminderScheduler } = await import('./lib/reminder')
+
     // Initialize window management
     await initializeWindow()
 
@@ -28,7 +38,6 @@ async function initializeApp() {
 
     // Set up reminder notification handler
     reminderScheduler.onTrigger((reminder) => {
-      // Show notification
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('EZTODO 提醒', {
           body: reminder.taskTitle,
@@ -48,9 +57,10 @@ if ('Notification' in window && Notification.permission === 'default') {
   Notification.requestPermission()
 }
 
-// Initialize app before rendering
+// Initialize app
 initializeApp()
 
+// Render app
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

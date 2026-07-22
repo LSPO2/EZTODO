@@ -236,7 +236,7 @@ export class TaskRepository {
     const db = await getDatabase()
 
     // Check if task is synced
-    const pendingSync = await db.select<{ count: number }[]>(
+    const pendingSync = await db.select(
       `SELECT COUNT(*) as count FROM sync_outbox WHERE entity_id = $1 AND synced_at IS NULL`,
       [id]
     )
@@ -255,7 +255,7 @@ export class TaskRepository {
   async findById(id: string): Promise<Task | null> {
     const db = await getDatabase()
 
-    const result = await db.select<Task[]>(
+    const result = await db.select(
       `SELECT
         id, parent_id as parentId, project_id as projectId,
         title, note, status, priority, sort_order as sortOrder,
@@ -337,7 +337,7 @@ export class TaskRepository {
     }
 
     // Execute query
-    const tasks = await db.select<Task[]>(
+    const tasks = await db.select(
       `SELECT
         id, parent_id as parentId, project_id as projectId,
         title, note, status, priority, sort_order as sortOrder,
@@ -362,7 +362,7 @@ export class TaskRepository {
     const db = await getDatabase()
     const searchTerm = `%${query}%`
 
-    return db.select<Task[]>(
+    return db.select(
       `SELECT
         id, parent_id as parentId, project_id as projectId,
         title, note, status, priority, sort_order as sortOrder,
@@ -385,7 +385,7 @@ export class TaskRepository {
   async getChildren(parentId: string): Promise<Task[]> {
     const db = await getDatabase()
 
-    return db.select<Task[]>(
+    return db.select(
       `SELECT
         id, parent_id as parentId, project_id as projectId,
         title, note, status, priority, sort_order as sortOrder,
@@ -408,7 +408,7 @@ export class TaskRepository {
   async getDescendants(parentId: string): Promise<Task[]> {
     const db = await getDatabase()
 
-    return db.select<Task[]>(
+    return db.select(
       `WITH RECURSIVE descendants AS (
         SELECT id, parent_id, title, status
         FROM tasks WHERE parent_id = $1 AND deleted_at IS NULL
@@ -467,7 +467,7 @@ export class TaskRepository {
   private async isAncestor(ancestorId: string, descendantId: string): Promise<boolean> {
     const db = await getDatabase()
 
-    const result = await db.select<{ count: number }[]>(
+    const result = await db.select(
       `WITH RECURSIVE ancestors AS (
         SELECT parent_id FROM tasks WHERE id = $1
         UNION ALL
@@ -562,7 +562,7 @@ export class TaskRepository {
   async getPendingSync(): Promise<SyncOperation[]> {
     const db = await getDatabase()
 
-    return db.select<SyncOperation[]>(
+    return db.select(
       `SELECT
         id, operation_id as operationId,
         entity_type as entityType, entity_id as entityId,

@@ -78,7 +78,7 @@ export class TagRepository {
   async findAll(): Promise<Tag[]> {
     const db = await getDatabase()
 
-    return db.select<Tag[]>(
+    return db.select(
       `SELECT id, name, color, created_at as createdAt FROM tags ORDER BY name ASC`
     )
   }
@@ -89,7 +89,7 @@ export class TagRepository {
   async findById(id: string): Promise<Tag | null> {
     const db = await getDatabase()
 
-    const result = await db.select<Tag[]>(
+    const result = await db.select(
       `SELECT id, name, color, created_at as createdAt FROM tags WHERE id = $1`,
       [id]
     )
@@ -103,7 +103,7 @@ export class TagRepository {
   async findByTaskId(taskId: string): Promise<Tag[]> {
     const db = await getDatabase()
 
-    return db.select<Tag[]>(
+    return db.select(
       `SELECT t.id, t.name, t.color, t.created_at as createdAt
        FROM tags t
        JOIN task_tags tt ON t.id = tt.tag_id

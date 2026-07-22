@@ -56,11 +56,11 @@ export async function createBackup(): Promise<BackupResult> {
   const db = await getDatabase()
 
   // Get all data
-  const tasks = await db.select<any[]>(`SELECT * FROM tasks`)
-  const projects = await db.select<any[]>(`SELECT * FROM projects`)
-  const tags = await db.select<any[]>(`SELECT * FROM tags`)
-  const reminders = await db.select<any[]>(`SELECT * FROM reminders`)
-  const recurrenceRules = await db.select<any[]>(`SELECT * FROM recurrence_rules`)
+  const tasks = await db.select(`SELECT * FROM tasks`)
+  const projects = await db.select(`SELECT * FROM projects`)
+  const tags = await db.select(`SELECT * FROM tags`)
+  const reminders = await db.select(`SELECT * FROM reminders`)
+  const recurrenceRules = await db.select(`SELECT * FROM recurrence_rules`)
 
   // Create backup data
   const backupData: BackupFile = {
@@ -110,11 +110,11 @@ export async function downloadBackup(): Promise<void> {
   const db = await getDatabase()
 
   // Get all data
-  const tasks = await db.select<any[]>(`SELECT * FROM tasks`)
-  const projects = await db.select<any[]>(`SELECT * FROM projects`)
-  const tags = await db.select<any[]>(`SELECT * FROM tags`)
-  const reminders = await db.select<any[]>(`SELECT * FROM reminders`)
-  const recurrenceRules = await db.select<any[]>(`SELECT * FROM recurrence_rules`)
+  const tasks = await db.select(`SELECT * FROM tasks`)
+  const projects = await db.select(`SELECT * FROM projects`)
+  const tags = await db.select(`SELECT * FROM tags`)
+  const reminders = await db.select(`SELECT * FROM reminders`)
+  const recurrenceRules = await db.select(`SELECT * FROM recurrence_rules`)
 
   // Create backup data
   const backupData: BackupFile = {
@@ -342,7 +342,7 @@ async function calculateChecksum(content: string): Promise<string> {
 export async function getBackupSizeEstimate(): Promise<number> {
   const db = await getDatabase()
 
-  const counts = await db.select<any[]>(
+  const counts = await db.select(
     `SELECT
        (SELECT COUNT(*) FROM tasks) as tasks,
        (SELECT COUNT(*) FROM projects) as projects,

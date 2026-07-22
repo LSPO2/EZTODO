@@ -443,7 +443,7 @@ function applyColumnMapping(data: any, mapping: ColumnMapping[]): any {
 async function checkTaskExists(title: string): Promise<boolean> {
   const db = await getDatabase()
 
-  const result = await db.select<{ count: number }[]>(
+  const result = await db.select(
     `SELECT COUNT(*) as count FROM tasks WHERE title = $1 AND deleted_at IS NULL`,
     [title.trim()]
   )

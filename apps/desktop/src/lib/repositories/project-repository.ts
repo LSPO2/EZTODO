@@ -100,7 +100,7 @@ export class ProjectRepository {
   async findAll(): Promise<Project[]> {
     const db = await getDatabase()
 
-    return db.select<Project[]>(
+    return db.select(
       `SELECT
         id, name, color, icon, sort_order as sortOrder,
         created_at as createdAt, updated_at as updatedAt,
@@ -117,7 +117,7 @@ export class ProjectRepository {
   async findById(id: string): Promise<Project | null> {
     const db = await getDatabase()
 
-    const result = await db.select<Project[]>(
+    const result = await db.select(
       `SELECT
         id, name, color, icon, sort_order as sortOrder,
         created_at as createdAt, updated_at as updatedAt,

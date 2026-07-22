@@ -10,7 +10,7 @@ import { getDatabase } from './index'
 export async function isDatabaseInitialized(): Promise<boolean> {
   try {
     const db = await getDatabase()
-    const result = await db.select<{ count: number }[]>(
+    const result = await db.select(
       "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='tasks'"
     )
     return result[0]?.count > 0
@@ -33,7 +33,7 @@ export async function getDatabaseStats(): Promise<{
   const db = await getDatabase()
 
   const [tasks, projects, tags] = await Promise.all([
-    db.select<{ total: number; active: number; completed: number; deleted: number }[]>(
+    db.select(
       `SELECT
         COUNT(*) as total,
         SUM(CASE WHEN status = 'todo' AND deleted_at IS NULL THEN 1 ELSE 0 END) as active,
@@ -41,10 +41,10 @@ export async function getDatabaseStats(): Promise<{
         SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END) as deleted
       FROM tasks`
     ),
-    db.select<{ count: number }[]>(
+    db.select(
       "SELECT COUNT(*) as count FROM projects WHERE deleted_at IS NULL"
     ),
-    db.select<{ count: number }[]>(
+    db.select(
       "SELECT COUNT(*) as count FROM tags"
     ),
   ])
@@ -201,7 +201,7 @@ export async function cleanupOldDeletedTasks(): Promise<number> {
 export async function getDatabaseSize(): Promise<number> {
   const db = await getDatabase()
 
-  const result = await db.select<{ page_count: number; page_size: number }[]>(
+  const result = await db.select(
     'PRAGMA page_count; PRAGMA page_size;'
   )
 

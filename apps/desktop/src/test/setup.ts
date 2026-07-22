@@ -2,6 +2,7 @@
  * Test setup file
  */
 
+import { vi } from 'vitest'
 import '@testing-library/jest-dom'
 
 // Mock Tauri APIs
@@ -69,9 +70,14 @@ class MockNotification {
   static permission = 'granted'
   static requestPermission = vi.fn().mockResolvedValue('granted')
 
-  constructor(public title: string, public options?: NotificationOptions) {}
-
+  title: string
+  options?: NotificationOptions
   close = vi.fn()
+
+  constructor(title: string, options?: NotificationOptions) {
+    this.title = title
+    this.options = options
+  }
 }
 
 global.Notification = MockNotification as any

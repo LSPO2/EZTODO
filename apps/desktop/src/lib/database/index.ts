@@ -1,37 +1,209 @@
 /**
  * Database initialization and migration module
+ * Supports both Tauri SQLite and browser localStorage
  */
 
-import Database from '@tauri-apps/plugin-sql';
+import { BrowserDatabase } from './browser-db'
 
-let db: Database | null = null;
+// Check if running in Tauri
+const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined
+
+// Database interface
+interface Database {
+  execute(sql: string, params?: any[]): Promise<{ rowsAffected: number }>
+  select<T>(sql: string, params?: any[]): Promise<T>
+  close(): Promise<void>
+}
+
+let db: any = null
 
 /**
  * Get database instance (singleton)
  */
-export async function getDatabase(): Promise<Database> {
+export async function getDatabase(): Promise<any> {
   if (!db) {
-    db = await Database.load('sqlite:eztodo.db');
-    await initializeDatabase(db);
+    if (isTauri) {
+      // Use Tauri SQLite
+      try {
+        const { default: TauriDatabase } = await import('@tauri-apps/plugin-sql')
+        db = await TauriDatabase.load('sqlite:eztodo.db')
+        await initializeDatabase(db)
+      } catch (error) {
+        console.warn('Failed to load Tauri SQL, falling back to browser storage:', error)
+        db = new BrowserDatabase()
+        await initializeBrowserDatabase()
+      }
+    } else {
+      // Use browser localStorage
+      console.log('Using browser localStorage as database')
+      db = new BrowserDatabase()
+      await initializeBrowserDatabase()
+    }
   }
-  return db;
+  return db
 }
 
 /**
- * Initialize database with PRAGMA settings
+ * Initialize database with PRAGMA settings (Tauri only)
  */
-async function initializeDatabase(database: Database): Promise<void> {
-  // Enable foreign keys
-  await database.execute('PRAGMA foreign_keys = ON');
+async function initializeDatabase(database: any): Promise<void> {
+  try {
+    // Enable foreign keys
+    await database.execute('PRAGMA foreign_keys = ON')
 
-  // Enable WAL mode for better performance
-  await database.execute('PRAGMA journal_mode = WAL')
+    // Enable WAL mode for better performance
+    await database.execute('PRAGMA journal_mode = WAL')
 
-  // Set busy timeout
-  await database.execute('PRAGMA busy_timeout = 5000')
+    // Set busy timeout
+    await database.execute('PRAGMA busy_timeout = 5000')
 
-  // Run migrations
-  await runMigrations(database)
+    // Run migrations
+    await runMigrations(database)
+  } catch (error) {
+    console.error('Database initialization failed:', error)
+    throw error
+  }
+}
+
+/**
+ * Initialize browser database with sample data
+ */
+async function initializeBrowserDatabase(): Promise<void> {
+  console.log('Initializing browser database with sample data')
+
+  // Add sample projects
+  const projects = [
+    { id: 'proj-1', name: '工作', color: '#3498db', icon: '💼', sort_order: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 'proj-2', name: '学习', color: '#27ae60', icon: '📚', sort_order: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 'proj-3', name: '生活', color: '#e74c3c', icon: '🏠', sort_order: 3, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ]
+
+  // Add sample tasks
+  const tasks = [
+    {
+      id: 'task-1',
+      parent_id: null,
+      project_id: 'proj-1',
+      title: '提交项目报告',
+      note: '包含 Q2 的销售数据和市场分析',
+      status: 'todo',
+      priority: 'p1',
+      sort_order: 1,
+      scheduled_date: new Date().toISOString().split('T')[0],
+      scheduled_at: null,
+      due_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+      is_all_day: 0,
+      timezone: 'Asia/Shanghai',
+      estimated_minutes: 120,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      completed_at: null,
+      deleted_at: null,
+      revision: 1,
+      source: 'manual',
+    },
+    {
+      id: 'task-2',
+      parent_id: null,
+      project_id: 'proj-1',
+      title: '准备明天的会议材料',
+      note: '需要准备 PPT 和数据报表',
+      status: 'todo',
+      priority: 'p2',
+      sort_order: 2,
+      scheduled_date: new Date().toISOString().split('T')[0],
+      scheduled_at: null,
+      due_at: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString(),
+      is_all_day: 0,
+      timezone: 'Asia/Shanghai',
+      estimated_minutes: 90,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      completed_at: null,
+      deleted_at: null,
+      revision: 1,
+      source: 'manual',
+    },
+    {
+      id: 'task-3',
+      parent_id: null,
+      project_id: 'proj-3',
+      title: '买菜做饭',
+      note: '晚上做红烧肉和青菜',
+      status: 'todo',
+      priority: 'p3',
+      sort_order: 3,
+      scheduled_date: new Date().toISOString().split('T')[0],
+      scheduled_at: null,
+      due_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      is_all_day: 0,
+      timezone: 'Asia/Shanghai',
+      estimated_minutes: 60,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      completed_at: null,
+      deleted_at: null,
+      revision: 1,
+      source: 'manual',
+    },
+    {
+      id: 'task-4',
+      parent_id: null,
+      project_id: 'proj-1',
+      title: '回复邮件',
+      note: null,
+      status: 'done',
+      priority: 'none',
+      sort_order: 4,
+      scheduled_date: null,
+      scheduled_at: null,
+      due_at: null,
+      is_all_day: 0,
+      timezone: 'Asia/Shanghai',
+      estimated_minutes: null,
+      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      deleted_at: null,
+      revision: 1,
+      source: 'manual',
+    },
+    {
+      id: 'task-5',
+      parent_id: null,
+      project_id: 'proj-2',
+      title: '每周一晚上八点复习高数',
+      note: '第七章内容',
+      status: 'todo',
+      priority: 'none',
+      sort_order: 5,
+      scheduled_date: null,
+      scheduled_at: null,
+      due_at: null,
+      is_all_day: 0,
+      timezone: 'Asia/Shanghai',
+      estimated_minutes: 120,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      completed_at: null,
+      deleted_at: null,
+      revision: 1,
+      source: 'manual',
+    },
+  ]
+
+  // Store in localStorage
+  const dbData: any = {
+    projects,
+    tasks,
+    tags: [],
+    reminders: [],
+    recurrence_rules: [],
+    sync_outbox: [],
+    settings: [],
+  }
+
+  localStorage.setItem('eztodo_db', JSON.stringify(dbData))
 }
 
 /**

@@ -91,7 +91,7 @@ export class ReminderScheduler {
     const db = await getDatabase()
     const now = new Date().toISOString()
 
-    const reminders = await db.select<any[]>(
+    const reminders = await db.select(
       `SELECT r.*, t.title as task_title
        FROM reminders r
        JOIN tasks t ON r.task_id = t.id
@@ -175,7 +175,7 @@ export class ReminderScheduler {
     const id = uuidv4()
 
     // 获取任务标题
-    const task = await db.select<any[]>(
+    const task = await db.select(
       `SELECT title FROM tasks WHERE id = $1`,
       [taskId]
     )
@@ -361,7 +361,7 @@ export class ReminderScheduler {
   private async getReminderById(reminderId: string): Promise<ReminderInfo | null> {
     const db = await getDatabase()
 
-    const result = await db.select<any[]>(
+    const result = await db.select(
       `SELECT r.*, t.title as task_title
        FROM reminders r
        JOIN tasks t ON r.task_id = t.id
@@ -392,7 +392,7 @@ export class ReminderScheduler {
   async getTaskReminders(taskId: string): Promise<ReminderInfo[]> {
     const db = await getDatabase()
 
-    const result = await db.select<any[]>(
+    const result = await db.select(
       `SELECT r.*, t.title as task_title
        FROM reminders r
        JOIN tasks t ON r.task_id = t.id
@@ -401,7 +401,7 @@ export class ReminderScheduler {
       [taskId]
     )
 
-    return result.map(row => ({
+    return result.map((row: any) => ({
       id: row.id,
       taskId: row.task_id,
       taskTitle: row.task_title,
@@ -423,7 +423,7 @@ export class ReminderScheduler {
     const now = new Date().toISOString()
 
     // 查找所有已过期但未触发的提醒
-    const missedReminders = await db.select<any[]>(
+    const missedReminders = await db.select(
       `SELECT r.*, t.title as task_title
        FROM reminders r
        JOIN tasks t ON r.task_id = t.id
@@ -486,7 +486,7 @@ export class ReminderScheduler {
     const db = await getDatabase()
     const now = new Date().toISOString()
 
-    const result = await db.select<any[]>(
+    const result = await db.select(
       `SELECT r.*, t.title as task_title
        FROM reminders r
        JOIN tasks t ON r.task_id = t.id
@@ -496,7 +496,7 @@ export class ReminderScheduler {
       [now, limit]
     )
 
-    return result.map(row => ({
+    return result.map((row: any) => ({
       id: row.id,
       taskId: row.task_id,
       taskTitle: row.task_title,

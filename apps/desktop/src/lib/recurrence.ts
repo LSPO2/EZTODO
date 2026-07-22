@@ -333,7 +333,7 @@ export async function createRecurrenceRule(
 export async function getRecurrenceRule(taskId: string): Promise<RecurrenceRule | null> {
   const db = await getDatabase()
 
-  const result = await db.select<any[]>(
+  const result = await db.select(
     `SELECT * FROM recurrence_rules WHERE task_id = $1`,
     [taskId]
   )
@@ -433,7 +433,7 @@ export async function generateNextInstance(taskId: string): Promise<string | nul
   const db = await getDatabase()
 
   // 获取当前任务
-  const taskResult = await db.select<any[]>(
+  const taskResult = await db.select(
     `SELECT * FROM tasks WHERE id = $1`,
     [taskId]
   )
@@ -478,7 +478,7 @@ export async function generateNextInstance(taskId: string): Promise<string | nul
   )
 
   // 复制标签
-  const tags = await db.select<any[]>(
+  const tags = await db.select(
     `SELECT tag_id FROM task_tags WHERE task_id = $1`,
     [taskId]
   )
@@ -504,7 +504,7 @@ export async function resetSubtasksForRecurrence(parentId: string): Promise<void
   const now = new Date().toISOString()
 
   // 获取需要重置的子任务（标记为可重置的）
-  const subtasks = await db.select<any[]>(
+  const subtasks = await db.select(
     `SELECT id FROM tasks WHERE parent_id = $1 AND status = 'done'`,
     [parentId]
   )

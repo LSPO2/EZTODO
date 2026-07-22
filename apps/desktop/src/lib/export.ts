@@ -57,7 +57,7 @@ export async function exportTasks(options: ExportOptions): Promise<ExportResult>
 
   query += ` ORDER BY created_at DESC`
 
-  const tasks = await db.select<any[]>(query, params)
+  const tasks = await db.select(query, params)
 
   // Export based on format
   switch (options.format) {

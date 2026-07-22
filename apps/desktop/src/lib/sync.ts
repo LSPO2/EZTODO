@@ -52,7 +52,7 @@ export class SyncManager {
    */
   async getStatus(): Promise<SyncStatus> {
     const db = await getDatabase()
-    const result = await db.select<{ count: number }[]>(
+    const result = await db.select(
       `SELECT COUNT(*) as count FROM sync_outbox WHERE synced_at IS NULL`
     )
 
@@ -140,7 +140,7 @@ export class SyncManager {
     const db = await getDatabase()
 
     // Get pending operations
-    const operations = await db.select<any[]>(
+    const operations = await db.select(
       `SELECT * FROM sync_outbox WHERE synced_at IS NULL ORDER BY created_at ASC LIMIT 100`
     )
 
@@ -156,7 +156,7 @@ export class SyncManager {
         'Authorization': `Bearer ${this.accessToken}`,
       },
       body: JSON.stringify({
-        operations: operations.map(op => ({
+        operations: operations.map((op: any) => ({
           operation_id: op.operation_id,
           entity_type: op.entity_type,
           entity_id: op.entity_id,
@@ -194,7 +194,7 @@ export class SyncManager {
     const db = await getDatabase()
 
     // Get last cursor
-    const cursorResult = await db.select<{ value: string }[]>(
+    const cursorResult = await db.select(
       `SELECT value FROM settings WHERE key = 'sync_cursor'`
     )
     const cursor = cursorResult[0]?.value || '0'
