@@ -66,7 +66,7 @@ const globalShortcuts: ShortcutConfig[] = [
   },
 ]
 
-let registeredShortcuts: Map<string, ShortcutConfig> = new Map()
+const registeredShortcuts: Map<string, ShortcutConfig> = new Map()
 
 /**
  * Initialize keyboard shortcuts

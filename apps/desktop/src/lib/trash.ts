@@ -175,7 +175,7 @@ export async function restoreFromTrash(trashId: string): Promise<boolean> {
 
   // Restore based on entity type
   switch (trashItem.entity_type) {
-    case 'task':
+    case 'task': {
       // Restore task
       await db.execute(
         `UPDATE tasks SET deleted_at = NULL, updated_at = $1, revision = revision + 1 WHERE id = $2`,
@@ -195,6 +195,7 @@ export async function restoreFromTrash(trashId: string): Promise<boolean> {
         )
       }
       break
+    }
 
     case 'project':
       await db.execute(

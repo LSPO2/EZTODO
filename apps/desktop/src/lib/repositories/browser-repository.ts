@@ -123,6 +123,7 @@ export class BrowserTaskRepository {
     const db = getDb()
     const now = new Date()
     const today = now.toISOString().split('T')[0]
+    const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
     let tasks: Task[] = db.tasks.filter((t: Task) => !t.deletedAt)
 
@@ -139,7 +140,6 @@ export class BrowserTaskRepository {
         })
         break
       case 'week':
-        const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
         tasks = tasks.filter((t: Task) => {
           if (!t.scheduledDate) return false
           const date = new Date(t.scheduledDate)

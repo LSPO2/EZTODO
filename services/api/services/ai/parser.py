@@ -69,6 +69,41 @@ class TaskParser:
         warnings = []
         tasks = []
 
+        # Check for subtask patterns
+        subtask_match = re.search(r'(分成|分为|包括|子任务)[:：]?\s*(.+)', text)
+        if subtask_match:
+            # Extract parent title and subtasks
+            parent_title = text[:subtask_match.start()].strip()
+            subtasks_text = subtask_match.group(2)
+            subtask_titles = re.split(r'[,，、和与]', subtasks_text)
+
+            if parent_title and subtask_titles:
+                # Create parent task with subtasks
+                subtasks = [
+                    ParsedTask(title=t.strip(), confidence="high")
+                    for t in subtask_titles if t.strip()
+                ]
+                task = ParsedTask(
+                    title=parent_title,
+                    subtasks=subtasks,
+                    confidence="high",
+                )
+                tasks.append(task)
+                return ParseResult(
+                    tasks=tasks,
+                    confidence="high",
+                    warnings=warnings,
+                    original_text=text,
+                )
+
+        # Check for ambiguous reminder patterns
+        if re.search(r'(提醒我|叫我|提醒一下)', text) and not re.search(r'(明天|今天|下周|\d{1,2}点)', text):
+            warnings.append("未识别明确时间，将使用默认提醒")
+
+        # Check for past dates
+        if re.search(r'(昨天|上周|上个月|去年)', text):
+            warnings.append("包含过去日期")
+
         # Extract date/time patterns
         scheduled_date, scheduled_at, due_at, reminders = self._extract_datetime(text, context)
 
@@ -81,7 +116,18 @@ class TaskParser:
         # Clean title
         title = self._clean_title(text)
 
+        # Determine confidence
+        has_time = scheduled_date or scheduled_at or due_at
+        has_warning = len(warnings) > 0
+        is_ambiguous = re.search(r'(有空|整理|处理|处理一下)', text) is not None
+
         if title:
+            confidence = "high"
+            if has_warning or is_ambiguous:
+                confidence = "medium"
+            if not has_time and not recurrence:
+                confidence = "low"
+
             task = ParsedTask(
                 title=title,
                 scheduled_date=scheduled_date,
@@ -90,13 +136,20 @@ class TaskParser:
                 reminders=reminders,
                 priority=priority,
                 recurrence=recurrence,
-                confidence="high" if (scheduled_date or scheduled_at or due_at) else "medium",
+                confidence=confidence,
+                uncertain_fields=["time"] if not has_time and not recurrence else [],
             )
             tasks.append(task)
 
+        overall_confidence = "high"
+        if has_warning or is_ambiguous:
+            overall_confidence = "medium"
+        if not tasks:
+            overall_confidence = "low"
+
         return ParseResult(
             tasks=tasks,
-            confidence="high" if tasks else "low",
+            confidence=overall_confidence,
             warnings=warnings,
             original_text=text,
         )
