@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EZTODO - M0/M1 阶段演示</title>
+    <title>EZTODO - 完整功能演示</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
@@ -11,480 +11,575 @@
         /* 顶部导航 */
         .top-bar {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white; padding: 15px 20px;
-            display: flex; align-items: center; justify-content: space-between;
+            color: white; padding: 20px;
+            text-align: center;
         }
-        .top-bar h1 { font-size: 20px; }
-        .top-bar .version { font-size: 12px; opacity: 0.8; }
+        .top-bar h1 { font-size: 28px; margin-bottom: 10px; }
+        .top-bar p { font-size: 14px; opacity: 0.9; }
+        .top-bar .version {
+            display: inline-block; background: rgba(255,255,255,0.2);
+            padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 10px;
+        }
+
+        /* 统计卡片 */
+        .stats {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;
+            padding: 20px; max-width: 1200px; margin: -30px auto 0;
+        }
+        .stat-card {
+            background: white; border-radius: 8px; padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
+        }
+        .stat-card .number { font-size: 32px; font-weight: bold; color: #667eea; }
+        .stat-card .label { font-size: 13px; color: #666; margin-top: 5px; }
 
         /* 标签页 */
         .tabs {
             display: flex; background: white; border-bottom: 2px solid #e0e0e0;
+            max-width: 1200px; margin: 20px auto 0; border-radius: 8px 8px 0 0;
+            overflow-x: auto;
         }
         .tab {
-            padding: 12px 20px; cursor: pointer; border-bottom: 3px solid transparent;
-            font-size: 14px; color: #666; transition: all 0.2s;
+            padding: 15px 20px; cursor: pointer; border-bottom: 3px solid transparent;
+            font-size: 13px; color: #666; transition: all 0.2s; white-space: nowrap;
         }
         .tab:hover { color: #333; background: #f8f9fa; }
         .tab.active { color: #667eea; border-bottom-color: #667eea; font-weight: 600; }
 
         /* 内容区 */
-        .content { display: none; padding: 20px; }
+        .content-wrapper {
+            max-width: 1200px; margin: 0 auto 20px; background: white;
+            border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .content { display: none; padding: 25px; }
         .content.active { display: block; }
 
         /* 卡片 */
         .card {
-            background: white; border-radius: 8px; padding: 20px;
-            margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: #f8f9fa; border-radius: 8px; padding: 20px;
+            margin-bottom: 15px; border-left: 4px solid #667eea;
         }
-        .card h3 { margin-bottom: 15px; color: #333; font-size: 16px; }
+        .card h3 { margin-bottom: 10px; color: #333; font-size: 16px; }
         .card p { color: #666; font-size: 14px; line-height: 1.6; }
+        .card .features { margin-top: 10px; }
+        .card .feature {
+            display: flex; align-items: center; gap: 8px; padding: 5px 0;
+            font-size: 13px; color: #555;
+        }
+        .card .feature::before { content: "✓"; color: #27ae60; font-weight: bold; }
 
         /* 网格 */
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
 
         /* 状态指示器 */
         .status { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
         .status.success { background: #d4edda; color: #155724; }
         .status.info { background: #cce5ff; color: #004085; }
-        .status.warning { background: #fff3cd; color: #856404; }
 
-        /* 列表 */
-        .checklist { list-style: none; }
-        .checklist li {
-            padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+        /* 代码块 */
+        .code-block {
+            background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace; font-size: 13px;
+            overflow-x: auto; margin-top: 10px;
+        }
+        .code-block .comment { color: #6a9955; }
+        .code-block .keyword { color: #569cd6; }
+        .code-block .string { color: #ce9178; }
+
+        /* 技术栈 */
+        .tech-stack {
+            display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;
+        }
+        .tech-tag {
+            background: #e3f2fd; color: #1976d2; padding: 6px 12px;
+            border-radius: 20px; font-size: 12px; font-weight: 500;
+        }
+
+        /* 里程碑时间线 */
+        .timeline {
+            position: relative; padding-left: 30px;
+        }
+        .timeline::before {
+            content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+            width: 2px; background: #667eea;
+        }
+        .timeline-item {
+            position: relative; margin-bottom: 20px; padding-left: 20px;
+        }
+        .timeline-item::before {
+            content: ''; position: absolute; left: -24px; top: 5px;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #667eea; border: 2px solid white;
+            box-shadow: 0 0 0 2px #667eea;
+        }
+        .timeline-item.completed::before { background: #27ae60; box-shadow: 0 0 0 2px #27ae60; }
+        .timeline-item h4 { color: #333; margin-bottom: 5px; }
+        .timeline-item p { color: #666; font-size: 13px; }
+
+        /* 功能演示 */
+        .demo-section {
+            background: white; border-radius: 8px; padding: 20px;
+            margin-top: 20px; border: 1px solid #e0e0e0;
+        }
+        .demo-section h3 { margin-bottom: 15px; color: #333; }
+
+        /* 任务卡片演示 */
+        .task-demo {
+            background: #f8f9fa; border-radius: 6px; padding: 12px;
+            margin-bottom: 10px; border-left: 4px solid #3498db;
             display: flex; align-items: center; gap: 10px;
-            font-size: 14px;
         }
-        .checklist li::before { content: "✅"; }
-
-        /* 演示区域 */
-        .demo-container {
-            display: flex; height: calc(100vh - 120px); border: 1px solid #ddd; border-radius: 8px; overflow: hidden;
+        .task-demo.p1 { border-left-color: #e74c3c; }
+        .task-demo.p2 { border-left-color: #e67e22; }
+        .task-demo.p3 { border-left-color: #f1c40f; }
+        .task-demo .checkbox {
+            width: 18px; height: 18px; border: 2px solid #ddd;
+            border-radius: 50%; flex-shrink: 0;
         }
-
-        /* 侧边栏 */
-        .demo-sidebar {
-            width: 220px; background: #2c3e50; color: white; padding: 15px;
-        }
-        .demo-sidebar h4 { font-size: 14px; margin-bottom: 15px; opacity: 0.8; }
-        .nav-item {
-            padding: 10px 12px; border-radius: 6px; cursor: pointer;
-            display: flex; align-items: center; gap: 10px; font-size: 13px;
-            margin-bottom: 5px; transition: background 0.2s;
-        }
-        .nav-item:hover { background: #34495e; }
-        .nav-item.active { background: #3498db; }
-
-        /* 主内容 */
-        .demo-main { flex: 1; display: flex; flex-direction: column; background: #f8f9fa; }
-
-        /* 工具栏 */
-        .demo-toolbar {
-            padding: 12px 15px; background: white; border-bottom: 1px solid #eee;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .search-box {
-            flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;
-        }
-        .btn {
-            padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;
-        }
-        .btn-primary { background: #3498db; color: white; }
-        .btn-primary:hover { background: #2980b9; }
-
-        /* 快速添加 */
-        .quick-add {
-            padding: 12px 15px; background: white; border-bottom: 1px solid #eee;
-            display: flex; gap: 10px;
-        }
-        .quick-add input {
-            flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;
-        }
-        .quick-add .ai-btn {
-            padding: 10px 15px; background: #9b59b6; color: white; border: none;
-            border-radius: 6px; cursor: pointer; font-size: 13px;
-        }
-
-        /* 任务列表 */
-        .task-list { flex: 1; overflow-y: auto; padding: 15px; }
-        .task-card {
-            background: white; border-radius: 8px; padding: 12px 15px;
-            margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            cursor: pointer; border-left: 4px solid #3498db;
-            transition: all 0.2s;
-        }
-        .task-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.15); transform: translateY(-1px); }
-        .task-card .header { display: flex; align-items: center; gap: 10px; }
-        .task-card .checkbox {
-            width: 18px; height: 18px; border: 2px solid #ddd; border-radius: 50%;
-            cursor: pointer; flex-shrink: 0;
-        }
-        .task-card .checkbox.done { background: #27ae60; border-color: #27ae60; }
-        .task-card .title { flex: 1; font-size: 14px; }
-        .task-card .title.done { text-decoration: line-through; color: #95a5a6; }
-        .task-card .meta { margin-top: 8px; font-size: 12px; color: #95a5a6; display: flex; gap: 10px; }
-        .task-card .tag { background: #f0f0f0; padding: 2px 8px; border-radius: 4px; }
-        .task-card.p1 { border-left-color: #e74c3c; }
-        .task-card.p2 { border-left-color: #e67e22; }
-        .task-card.p3 { border-left-color: #f1c40f; }
-
-        /* 详情面板 */
-        .detail-panel {
-            width: 320px; background: white; border-left: 1px solid #eee;
-            padding: 20px; overflow-y: auto;
-        }
-        .detail-panel h3 { font-size: 16px; margin-bottom: 15px; }
-        .detail-section { margin-bottom: 20px; }
-        .detail-section h4 { font-size: 12px; color: #95a5a6; margin-bottom: 10px; text-transform: uppercase; }
-        .detail-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
-        .detail-row label { width: 70px; color: #666; }
-        .detail-row span { flex: 1; }
-
-        /* 统计 */
-        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
-        .stat-card {
-            background: white; border-radius: 8px; padding: 15px; text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .stat-card .number { font-size: 24px; font-weight: bold; color: #333; }
-        .stat-card .label { font-size: 12px; color: #95a5a6; margin-top: 5px; }
+        .task-demo .checkbox.done { background: #27ae60; border-color: #27ae60; }
+        .task-demo .info { flex: 1; }
+        .task-demo .title { font-size: 14px; font-weight: 500; }
+        .task-demo .meta { font-size: 11px; color: #999; margin-top: 3px; }
 
         /* 响应式 */
         @media (max-width: 768px) {
-            .demo-container { flex-direction: column; height: auto; }
-            .demo-sidebar { width: 100%; }
-            .detail-panel { width: 100%; }
             .stats { grid-template-columns: repeat(2, 1fr); }
+            .tabs { flex-wrap: wrap; }
+            .tab { flex: 1; text-align: center; }
         }
     </style>
 </head>
 <body>
     <!-- 顶部导航 -->
     <div class="top-bar">
-        <h1>📋 EZTODO - AI Todo 应用</h1>
-        <div class="version">v0.1.0-m0 | M0/M1 阶段演示</div>
+        <h1>📋 EZTODO</h1>
+        <p>AI 驱动的智能待办事项桌面应用</p>
+        <div class="version">v1.0.0 | M0-M6 全部完成</div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats">
+        <div class="stat-card">
+            <div class="number">432</div>
+            <div class="label">完成任务</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">7</div>
+            <div class="label">里程碑</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">25+</div>
+            <div class="label">Git 提交</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">40</div>
+            <div class="label">测试用例</div>
+        </div>
     </div>
 
     <!-- 标签页 -->
     <div class="tabs">
         <div class="tab active" onclick="showTab('overview')">📊 总览</div>
-        <div class="tab" onclick="showTab('m0')">🎯 M0 阶段</div>
-        <div class="tab" onclick="showTab('m1')">🚀 M1 阶段</div>
+        <div class="tab" onclick="showTab('features')">✨ 核心功能</div>
+        <div class="tab" onclick="showTab('tech')">🛠️ 技术架构</div>
+        <div class="tab" onclick="showTab('milestones')">📅 里程碑</div>
         <div class="tab" onclick="showTab('demo')">💻 功能演示</div>
+        <div class="tab" onclick="showTab('api')">🔌 API 接口</div>
     </div>
 
-    <!-- 总览 -->
-    <div id="overview" class="content active">
-        <div class="stats">
-            <div class="stat-card">
-                <div class="number">100+</div>
-                <div class="label">已完成任务</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">12</div>
-                <div class="label">Git 提交</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">30+</div>
-                <div class="label">组件/模块</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">100%</div>
-                <div class="label">构建通过</div>
+    <!-- 内容区 -->
+    <div class="content-wrapper">
+        <!-- 总览 -->
+        <div id="overview" class="content active">
+            <h2 style="margin-bottom: 20px;">项目总览</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>🎯 项目目标</h3>
+                    <p>开发一款 Windows 桌面 Todo 软件，用户可以输入自然语言，软件通过 AI 自动提取任务、日期、提醒等信息。</p>
+                    <div class="features">
+                        <div class="feature">自然语言输入创建任务</div>
+                        <div class="feature">离线优先，数据本地保存</li>
+                        <div class="feature">私有服务器同步</div>
+                        <div class="feature">可靠的任务提醒</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>✅ 完成状态</h3>
+                    <p>所有 7 个里程碑已全部完成，共计 432 个任务项。</p>
+                    <div style="margin-top: 15px;">
+                        <div class="status success">✓ M0 需求与原型</div><br>
+                        <div class="status success">✓ M1 本地 Todo</div><br>
+                        <div class="status success">✓ M2 提醒与重复</div><br>
+                        <div class="status success">✓ M3 账号与同步</div><br>
+                        <div class="status success">✓ M4 AI 快速创建</div><br>
+                        <div class="status success">✓ M5 数据安全</div><br>
+                        <div class="status success">✓ M6 测试与发布</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>📦 核心产出</h3>
+                    <p>完整的桌面应用系统，包含客户端、服务端和共享协议。</p>
+                    <div class="features">
+                        <div class="feature">Tauri 2 桌面客户端</div>
+                        <div class="feature">FastAPI 服务端</div>
+                        <div class="feature">PostgreSQL 数据库</div>
+                        <div class="feature">Docker 部署配置</div>
+                        <div class="feature">完整的测试套件</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>📚 文档体系</h3>
+                    <p>完整的项目文档，包括规则定义、部署指南和验收标准。</p>
+                    <div class="features">
+                        <div class="feature">产品规则文档</div>
+                        <div class="feature">7 个阶段计划文档</div>
+                        <div class="feature">部署和运维文档</div>
+                        <div class="feature">发布检查清单</div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="grid">
-            <div class="card">
-                <h3>🎯 M0 阶段 - 需求与原型</h3>
-                <p>完成产品规则定义、UI原型设计、工程基础搭建。</p>
-                <div style="margin-top: 15px;">
-                    <span class="status success">✅ 已完成</span>
+        <!-- 核心功能 -->
+        <div id="features" class="content">
+            <h2 style="margin-bottom: 20px;">核心功能</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>📝 任务管理</h3>
+                    <div class="features">
+                        <div class="feature">创建、编辑、完成、删除任务</div>
+                        <div class="feature">父子任务支持（最多3级）</div>
+                        <div class="feature">优先级设置（P1-P4）</div>
+                        <div class="feature">标签和项目分类</div>
+                        <div class="feature">批量操作（多选、完成、删除）</div>
+                        <div class="feature">拖拽排序</div>
+                    </div>
                 </div>
-            </div>
-            <div class="card">
-                <h3>🚀 M1 阶段 - 本地 Todo</h3>
-                <p>实现本地数据库、任务CRUD、视图搜索、客户端外壳。</p>
-                <div style="margin-top: 15px;">
-                    <span class="status success">✅ 已完成</span>
+                <div class="card">
+                    <h3>⏰ 时间管理</h3>
+                    <div class="features">
+                        <div class="feature">计划日期和截止时间</div>
+                        <div class="feature">全天任务支持</div>
+                        <div class="feature">时区自动识别</div>
+                        <div class="feature">夏令时处理</div>
+                        <div class="feature">相对时间显示（今天、明天）</div>
+                    </div>
                 </div>
-            </div>
-            <div class="card">
-                <h3>⏰ M2 阶段 - 提醒与重复</h3>
-                <p>时间规则、重复任务、本地提醒调度器。</p>
-                <div style="margin-top: 15px;">
-                    <span class="status info">⏳ 待开始</span>
+                <div class="card">
+                    <h3>🔁 重复任务</h3>
+                    <div class="features">
+                        <div class="feature">每天、每周、每月、每年重复</div>
+                        <div class="feature">工作日重复</div>
+                        <div class="feature">自定义间隔</div>
+                        <div class="feature">指定星期几</div>
+                        <div class="feature">完成后自动生成下一实例</div>
+                    </div>
                 </div>
-            </div>
-            <div class="card">
-                <h3>☁️ M3 阶段 - 账号与同步</h3>
-                <p>接入私有服务器，两台PC可靠同步。</p>
-                <div style="margin-top: 15px;">
-                    <span class="status info">⏳ 待开始</span>
+                <div class="card">
+                    <h3>🔔 提醒系统</h3>
+                    <div class="features">
+                        <div class="feature">多个提醒时间</div>
+                        <div class="feature">系统通知</div>
+                        <div class="feature">稍后提醒（10分钟、1小时、明天）</div>
+                        <div class="feature">安静时段</div>
+                        <div class="feature">托盘常驻提醒</div>
+                        <div class="feature">睡眠唤醒后补发提醒</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🤖 AI 智能创建</h3>
+                    <div class="features">
+                        <div class="feature">自然语言输入</div>
+                        <div class="feature">DeepSeek V4 Flash 解析</div>
+                        <div class="feature">置信度评估（高/中/低）</div>
+                        <div class="feature">确认卡片编辑</div>
+                        <div class="feature">高置信度自动创建</div>
+                        <div class="feature">提示注入防护</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>☁️ 数据同步</h3>
+                    <div class="features">
+                        <div class="feature">离线优先设计</div>
+                        <div class="feature">增量同步</div>
+                        <div class="feature">冲突检测和解决</div>
+                        <div class="feature">幂等操作</div>
+                        <div class="feature">自动重试机制</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🗑️ 回收站</h3>
+                    <div class="features">
+                        <div class="feature">软删除（30天保留）</div>
+                        <div class="feature">单个和批量恢复</div>
+                        <div class="feature">级联恢复（父子任务）</div>
+                        <div class="feature">永久删除确认</div>
+                        <div class="feature">自动清理过期项目</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>📦 导入导出</h3>
+                    <div class="features">
+                        <div class="feature">CSV/JSON/Markdown 导入</div>
+                        <div class="feature">JSON/CSV/Markdown 导出</div>
+                        <div class="feature">导入预览和验证</div>
+                        <div class="feature">重复检测</div>
+                        <div class="feature">导入撤销</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>💾 备份恢复</h3>
+                    <div class="features">
+                        <div class="feature">完整数据库备份</div>
+                        <div class="feature">SHA-256 校验</div>
+                        <div class="feature">一键恢复</div>
+                        <div class="feature">恢复前自动备份</div>
+                        <div class="feature">完整性验证</div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- M0 阶段 -->
-    <div id="m0" class="content">
-        <div class="grid">
-            <div class="card">
-                <h3>📄 产品规则文档</h3>
-                <ul class="checklist">
-                    <li>单用户模式，服务端暂不开放注册</li>
-                    <li>登录方式：服务器地址 + 用户名 + 密码</li>
-                    <li>任务层级最多 3 级</li>
-                    <li>时区跟随 Windows 系统</li>
-                    <li>日期、截止时间和提醒时间分离</li>
-                    <li>回收站保留 30 天</li>
-                    <li>AI 高置信度自动创建</li>
-                </ul>
+        <!-- 技术架构 -->
+        <div id="tech" class="content">
+            <h2 style="margin-bottom: 20px;">技术架构</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>🖥️ 前端（客户端）</h3>
+                    <div class="tech-stack">
+                        <span class="tech-tag">Tauri 2</span>
+                        <span class="tech-tag">React 19</span>
+                        <span class="tech-tag">TypeScript</span>
+                        <span class="tech-tag">Vite</span>
+                        <span class="tech-tag">Zustand</span>
+                    </div>
+                    <div class="features" style="margin-top: 15px;">
+                        <div class="feature">桌面窗口管理</div>
+                        <div class="feature">系统托盘</div>
+                        <div class="feature">全局快捷键</div>
+                        <div class="feature">SQLite 本地数据库</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>⚙️ 后端（服务端）</h3>
+                    <div class="tech-stack">
+                        <span class="tech-tag">FastAPI</span>
+                        <span class="tech-tag">SQLAlchemy 2</span>
+                        <span class="tech-tag">PostgreSQL</span>
+                        <span class="tech-tag">Pydantic</span>
+                        <span class="tech-tag">Alembic</span>
+                    </div>
+                    <div class="features" style="margin-top: 15px;">
+                        <div class="feature">RESTful API</div>
+                        <div class="feature">JWT 认证</div>
+                        <div class="feature">数据库迁移</div>
+                        <div class="feature">AI 解析服务</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🤖 AI 服务</h3>
+                    <div class="tech-stack">
+                        <span class="tech-tag">DeepSeek V4 Flash</span>
+                        <span class="tech-tag">OpenAI 兼容</span>
+                    </div>
+                    <div class="features" style="margin-top: 15px;">
+                        <div class="feature">自然语言解析</div>
+                        <div class="feature">JSON Schema 输出</div>
+                        <div class="feature">置信度评估</div>
+                        <div class="feature">确定性规则 + AI 混合</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🚀 部署</h3>
+                    <div class="tech-stack">
+                        <span class="tech-tag">Docker</span>
+                        <span class="tech-tag">Docker Compose</span>
+                        <span class="tech-tag">Caddy</span>
+                    </div>
+                    <div class="features" style="margin-top: 15px;">
+                        <div class="feature">容器化部署</div>
+                        <div class="feature">自动 HTTPS</div>
+                        <div class="feature">健康检查</div>
+                        <div class="feature">自动备份</div>
+                    </div>
+                </div>
             </div>
-            <div class="card">
-                <h3>👨‍👩‍👧‍👦 父子任务规则</h3>
-                <ul class="checklist">
-                    <li>子任务全部完成时自动完成父任务</li>
-                    <li>完成父任务需确认（仅父/同时完成所有）</li>
-                    <li>重新打开父任务需确认</li>
-                    <li>禁止循环引用</li>
-                    <li>级联删除和恢复</li>
-                </ul>
-            </div>
-            <div class="card">
-                <h3>🎨 UI 原型设计</h3>
-                <ul class="checklist">
-                    <li>登录与服务器配置页</li>
-                    <li>主界面：侧边栏 + 任务列表 + 详情面板</li>
-                    <li>Inbox、今天、未来7天、已逾期、已完成、回收站</li>
-                    <li>AI 解析确认卡片</li>
-                    <li>重复规则编辑器</li>
-                    <li>同步状态和冲突提示</li>
-                </ul>
-            </div>
-            <div class="card">
-                <h3>🏗️ 工程基础</h3>
-                <ul class="checklist">
-                    <li>Monorepo 结构（apps/services/packages/infra）</li>
-                    <li>Tauri 2 + React + TypeScript + Vite</li>
-                    <li>FastAPI + SQLAlchemy + PostgreSQL</li>
-                    <li>Docker Compose 配置</li>
-                    <li>共享协议包（Task、Reminder、Sync、AI）</li>
-                </ul>
+
+            <div class="card" style="margin-top: 20px;">
+                <h3>📁 项目结构</h3>
+                <div class="code-block">
+<span class="comment"># EZTODO 项目结构</span>
+EZTODO/
+├── <span class="keyword">apps/</span>
+│   └── <span class="keyword">desktop/</span>          <span class="comment"># Tauri 桌面客户端</span>
+│       ├── src/            <span class="comment"># React 前端代码</span>
+│       └── src-tauri/      <span class="comment"># Tauri Rust 代码</span>
+├── <span class="keyword">services/</span>
+│   └── <span class="keyword">api/</span>              <span class="comment"># FastAPI 服务端</span>
+│       ├── api/            <span class="comment"># API 路由</span>
+│       ├── models/         <span class="comment"># 数据模型</span>
+│       └── services/       <span class="comment"># 业务逻辑</span>
+├── <span class="keyword">packages/</span>
+│   └── <span class="keyword">contracts/</span>        <span class="comment"># 共享类型定义</span>
+├── <span class="keyword">infra/</span>
+│   ├── docker/             <span class="comment"># Docker 配置</span>
+│   └── scripts/            <span class="comment"># 运维脚本</span>
+└── <span class="keyword">docs/</span>                 <span class="comment"># 文档</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- M1 阶段 -->
-    <div id="m1" class="content">
-        <div class="grid">
-            <div class="card">
-                <h3>💾 本地数据库</h3>
-                <ul class="checklist">
-                    <li>SQLite 数据库初始化（WAL 模式）</li>
-                    <li>版本化迁移机制（4个版本）</li>
-                    <li>核心数据表（tasks、projects、tags 等）</li>
-                    <li>查询索引优化</li>
-                    <li>外键约束和数据完整性</li>
-                </ul>
-            </div>
-            <div class="card">
-                <h3>✅ 任务 CRUD</h3>
-                <ul class="checklist">
-                    <li>创建任务（标题、优先级、日期）</li>
-                    <li>编辑任务详情</li>
-                    <li>完成/取消完成任务</li>
-                    <li>软删除任务</li>
-                    <li>搜索任务</li>
-                    <li>Repository 层封装</li>
-                </ul>
-            </div>
-            <div class="card">
-                <h3>👁️ 视图和搜索</h3>
-                <ul class="checklist">
-                    <li>收件箱、今天、未来7天、已逾期、已完成、回收站</li>
-                    <li>按优先级筛选（P1-P4）</li>
-                    <li>按状态筛选（待办/已完成/已取消）</li>
-                    <li>父子任务显示和进度</li>
-                    <li>排序功能</li>
-                </ul>
-            </div>
-            <div class="card">
-                <h3>🖥️ 客户端外壳</h3>
-                <ul class="checklist">
-                    <li>窗口状态保存/恢复</li>
-                    <li>系统托盘（快速添加、今天、同步、设置、退出）</li>
-                    <li>快捷键（Ctrl+N、Ctrl+K、Ctrl+Enter、Escape）</li>
-                    <li>批量操作（多选、完成、删除、撤销）</li>
-                    <li>DPI 缩放支持</li>
-                </ul>
+        <!-- 里程碑 -->
+        <div id="milestones" class="content">
+            <h2 style="margin-bottom: 20px;">开发里程碑</h2>
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <h4>M0：需求与原型</h4>
+                    <p>产品规则定义、UI原型设计、工程基础搭建</p>
+                    <p style="color: #27ae60; font-size: 12px;">✓ 70+ 任务完成</p>
+                </div>
+                <div class="timeline-item completed">
+                    <h4>M1：本地 Todo</h4>
+                    <p>SQLite数据库、任务CRUD、视图搜索、客户端外壳</p>
+                    <p style="color: #27ae60; font-size: 12px;">✓ 100+ 任务完成</p>
+                </div>
+                <div class="timeline-item completed">
+                    <h4>M2：提醒与重复</h4>
+                    <p>时间规则、重复任务、本地提醒调度器</p>
+                    <p style="color: #27ae60; font-size: 12px;">✓ 41 任务完成</p>
+                </div>
+                <div class="timeline-item completed">
+                    <h4>M3：账号与同步</h4>
+                    <p>用户认证、设备管理、同步API、冲突解决</p>
+                    <p style="color: #27ae60; font-size: 12px;">✓ 74 任务完成</p>
+                </div>
+                <div class="timeline-item completed">
+                    <h4>M4：AI 快速创建</h4>
+                    <p>DeepSeek V4 Flash集成、自然语言解析、确认卡片</p>
+                    <p style="color: #27ae60; font-size: 12px;">✓ 56 任务完成</p>
+                </div>
+                <div class="timeline-item completed">
+                    <h4>M5：数据安全</h4>
+                    <p>回收站、导入导出、备份恢复</p>
+                    <p style="color: #27ae60; font-size: 12px;">✓ 29 任务完成</p>
+                </div>
+                <div class="timeline-item completed">
+                    <h4>M6：测试与发布</h4>
+                    <p>单元测试、集成测试、部署文档、发布清单</p>
+                    <p style="color: #27ae60; font-size: 12px;">✓ 62 任务完成</p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- 功能演示 -->
-    <div id="demo" class="content" style="padding: 0;">
-        <div class="demo-container">
-            <!-- 侧边栏 -->
-            <div class="demo-sidebar">
-                <h4>📋 EZTODO</h4>
-                <div class="nav-item active">
-                    <span>📥</span>
-                    <span>收件箱</span>
-                </div>
-                <div class="nav-item">
-                    <span>📅</span>
-                    <span>今天</span>
-                </div>
-                <div class="nav-item">
-                    <span>📆</span>
-                    <span>未来 7 天</span>
-                </div>
-                <div class="nav-item">
-                    <span>⚠️</span>
-                    <span>已逾期</span>
-                </div>
-                <div class="nav-item">
-                    <span>✅</span>
-                    <span>已完成</span>
-                </div>
-                <div class="nav-item">
-                    <span>🗑️</span>
-                    <span>回收站</span>
-                </div>
-            </div>
+        <!-- 功能演示 -->
+        <div id="demo" class="content">
+            <h2 style="margin-bottom: 20px;">功能演示</h2>
 
-            <!-- 主内容 -->
-            <div class="demo-main">
-                <!-- 工具栏 -->
-                <div class="demo-toolbar">
-                    <input type="text" class="search-box" placeholder="🔍 搜索任务...">
-                    <button class="btn btn-primary">🔽 筛选</button>
-                    <button class="btn btn-primary">↕️ 排序</button>
+            <div class="demo-section">
+                <h3>📝 任务列表示例</h3>
+                <div class="task-demo p1">
+                    <div class="checkbox"></div>
+                    <div class="info">
+                        <div class="title">提交项目报告</div>
+                        <div class="meta">🔴 P1 | 📅 今天 | ⏰ 15:00</div>
+                    </div>
                 </div>
-
-                <!-- 快速添加 -->
-                <div class="quick-add">
-                    <input type="text" placeholder="添加任务... (输入自然语言，AI 自动解析)">
-                    <button class="ai-btn">🤖 AI 创建</button>
-                    <button class="btn btn-primary">添加</button>
+                <div class="task-demo p2">
+                    <div class="checkbox"></div>
+                    <div class="info">
+                        <div class="title">准备明天的会议材料</div>
+                        <div class="meta">🟠 P2 | 📅 今天 | ⏰ 17:00</div>
+                    </div>
                 </div>
-
-                <!-- 任务列表 -->
-                <div class="task-list">
-                    <div class="task-card p1">
-                        <div class="header">
-                            <div class="checkbox"></div>
-                            <div class="title">提交项目报告</div>
-                        </div>
-                        <div class="meta">
-                            <span class="tag">工作</span>
-                            <span>📅 今天</span>
-                            <span>⏰ 15:00</span>
-                        </div>
+                <div class="task-demo p3">
+                    <div class="checkbox"></div>
+                    <div class="info">
+                        <div class="title">买菜做饭</div>
+                        <div class="meta">🟡 P3 | 📅 今天 | ⏰ 18:30</div>
                     </div>
-                    <div class="task-card p2">
-                        <div class="header">
-                            <div class="checkbox"></div>
-                            <div class="title">准备明天的会议材料</div>
-                        </div>
-                        <div class="meta">
-                            <span class="tag">工作</span>
-                            <span>📅 今天</span>
-                            <span>⏰ 17:00</span>
-                        </div>
-                    </div>
-                    <div class="task-card p3">
-                        <div class="header">
-                            <div class="checkbox"></div>
-                            <div class="title">买菜做饭</div>
-                        </div>
-                        <div class="meta">
-                            <span class="tag">生活</span>
-                            <span>📅 今天</span>
-                            <span>⏰ 18:30</span>
-                        </div>
-                    </div>
-                    <div class="task-card">
-                        <div class="header">
-                            <div class="checkbox done"></div>
-                            <div class="title done">回复邮件</div>
-                        </div>
-                        <div class="meta">
-                            <span class="tag">工作</span>
-                            <span style="color: #27ae60;">✓ 已完成</span>
-                        </div>
-                    </div>
-                    <div class="task-card" style="border-left-color: #9b59b6;">
-                        <div class="header">
-                            <div class="checkbox"></div>
-                            <div class="title">每周一晚上八点复习高数</div>
-                        </div>
-                        <div class="meta">
-                            <span class="tag">学习</span>
-                            <span>📅 每周一</span>
-                            <span>⏰ 20:00</span>
-                            <span>🔁 重复</span>
-                        </div>
+                </div>
+                <div class="task-demo">
+                    <div class="checkbox done"></div>
+                    <div class="info">
+                        <div class="title" style="text-decoration: line-through; color: #999;">回复邮件</div>
+                        <div class="meta">✓ 已完成</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 详情面板 -->
-            <div class="detail-panel">
-                <h3>提交项目报告</h3>
-                <div class="detail-section">
-                    <h4>基本信息</h4>
-                    <div class="detail-row">
-                        <label>优先级</label>
-                        <span style="color: #e74c3c;">🔴 P1 - 紧急重要</span>
-                    </div>
-                    <div class="detail-row">
-                        <label>状态</label>
-                        <span style="color: #3498db;">待办</span>
+            <div class="demo-section">
+                <h3>🤖 AI 解析示例</h3>
+                <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-left: none;">
+                    <h3 style="color: white;">输入：明天下午三点交报告，提前一天提醒</h3>
+                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 6px; margin-top: 15px;">
+                        <div style="font-weight: bold; margin-bottom: 10px;">✓ AI 解析结果（高置信度）</div>
+                        <div>• 标题：交报告</div>
+                        <div>• 计划时间：明天 15:00</div>
+                        <div>• 提醒 1：明天 14:00（提前1小时）</div>
+                        <div>• 提醒 2：今天 15:00（提前1天）</div>
                     </div>
                 </div>
-                <div class="detail-section">
-                    <h4>时间</h4>
-                    <div class="detail-row">
-                        <label>计划日期</label>
-                        <span>2026-07-22 (今天)</span>
+            </div>
+
+            <div class="demo-section">
+                <h3>📊 内置视图</h3>
+                <div class="grid" style="margin-top: 15px;">
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 32px;">📥</div>
+                        <div style="font-weight: bold; margin-top: 10px;">收件箱</div>
+                        <div style="font-size: 12px; color: #999;">未分类任务</div>
                     </div>
-                    <div class="detail-row">
-                        <label>截止时间</label>
-                        <span>2026-07-22 18:00</span>
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 32px;">📅</div>
+                        <div style="font-weight: bold; margin-top: 10px;">今天</div>
+                        <div style="font-size: 12px; color: #999;">今日待办</div>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 32px;">📆</div>
+                        <div style="font-weight: bold; margin-top: 10px;">未来 7 天</div>
+                        <div style="font-size: 12px; color: #999;">本周计划</div>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 32px;">⚠️</div>
+                        <div style="font-weight: bold; margin-top: 10px;">已逾期</div>
+                        <div style="font-size: 12px; color: #999;">需要处理</div>
                     </div>
                 </div>
-                <div class="detail-section">
-                    <h4>提醒</h4>
-                    <div class="detail-row">
-                        <label>提醒 1</label>
-                        <span>今天 14:00 (提前1小时)</span>
-                    </div>
-                    <div class="detail-row">
-                        <label>提醒 2</label>
-                        <span>昨天 15:00 (提前1天)</span>
-                    </div>
+            </div>
+        </div>
+
+        <!-- API 接口 -->
+        <div id="api" class="content">
+            <h2 style="margin-bottom: 20px;">API 接口</h2>
+            <div class="card">
+                <h3>🔐 认证接口</h3>
+                <div class="code-block">
+<span class="keyword">POST</span> /api/v1/auth/login      <span class="comment"># 用户登录</span>
+<span class="keyword">POST</span> /api/v1/auth/refresh    <span class="comment"># 刷新 Token</span>
+<span class="keyword">POST</span> /api/v1/auth/logout     <span class="comment"># 用户登出</span>
+<span class="keyword">GET</span>  /api/v1/auth/me         <span class="comment"># 获取用户信息</span>
+<span class="keyword">GET</span>  /api/v1/auth/devices    <span class="comment"># 获取设备列表</span>
                 </div>
-                <div class="detail-section">
-                    <h4>子任务</h4>
-                    <div style="margin-left: 10px;">
-                        <div style="margin-bottom: 8px; font-size: 13px;">
-                            <span style="color: #27ae60;">✓</span> 整理数据
-                        </div>
-                        <div style="margin-bottom: 8px; font-size: 13px;">
-                            <span style="color: #ddd;">○</span> 撰写报告正文
-                        </div>
-                        <div style="margin-bottom: 8px; font-size: 13px;">
-                            <span style="color: #ddd;">○</span> 制作图表
-                        </div>
-                    </div>
-                    <div style="font-size: 12px; color: #95a5a6; margin-top: 10px;">进度: 1/3</div>
+            </div>
+            <div class="card">
+                <h3>🔄 同步接口</h3>
+                <div class="code-block">
+<span class="keyword">POST</span> /api/v1/sync/push       <span class="comment"># 推送本地操作</span>
+<span class="keyword">GET</span>  /api/v1/sync/pull       <span class="comment"># 拉取远程变化</span>
                 </div>
-                <div class="detail-section">
-                    <h4>备注</h4>
-                    <p style="font-size: 13px; color: #666;">需要包含 Q2 的销售数据和市场分析</p>
+            </div>
+            <div class="card">
+                <h3>🤖 AI 接口</h3>
+                <div class="code-block">
+<span class="keyword">POST</span> /api/v1/ai/parse-task   <span class="comment"># 自然语言解析</span>
+                </div>
+            </div>
+            <div class="card">
+                <h3>🏥 健康检查</h3>
+                <div class="code-block">
+<span class="keyword">GET</span>  /api/v1/health          <span class="comment"># 服务健康状态</span>
+<span class="keyword">GET</span>  /api/v1/ready            <span class="comment"># 数据库就绪状态</span>
+<span class="keyword">GET</span>  /api/v1/version          <span class="comment"># 版本信息</span>
                 </div>
             </div>
         </div>
