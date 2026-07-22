@@ -1,0 +1,11 @@
+# EZTODO Caddy Configuration
+
+:80 {
+    # For local development, just proxy to API
+    reverse_proxy api:8000
+}
+
+# For production with domain, uncomment and modify:
+# yourdomain.com {
+#     reverse_proxy api:8000
+# }

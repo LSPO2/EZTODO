@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(pip --version)",
+      "Bash(npm create *)",
+      "Bash(python -m venv venv)",
+      "Bash(npm install *)"
+    ]
+  }
+}

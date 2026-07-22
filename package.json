@@ -1,0 +1,22 @@
+{
+  "name": "eztodo",
+  "private": true,
+  "version": "0.1.0-m0",
+  "description": "EZTODO - AI Todo Application",
+  "workspaces": [
+    "apps/desktop",
+    "packages/contracts"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/desktop",
+    "build": "npm run build -w apps/desktop",
+    "build:contracts": "npm run build -w packages/contracts",
+    "lint": "npm run lint -w apps/desktop",
+    "test": "npm run test -w apps/desktop",
+    "tauri": "npm run tauri -w apps/desktop"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
