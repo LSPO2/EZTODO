@@ -4,11 +4,15 @@
 
 import React, { useState } from 'react'
 import { useTaskStore } from '../../stores'
+import { FilterBar, SortMenu } from '../view'
+import type { SortField, SortDirection } from '../../lib/repositories'
 
 export const Toolbar: React.FC = () => {
-  const { searchTasks, loadTasks, currentView } = useTaskStore()
+  const { searchTasks, loadTasks, currentView, filters, setFilters } = useTaskStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  const [sortField, setSortField] = useState<SortField>('sortOrder')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,12 +30,19 @@ export const Toolbar: React.FC = () => {
     loadTasks()
   }
 
+  const handleSortChange = (field: SortField, direction: SortDirection) => {
+    setSortField(field)
+    setSortDirection(direction)
+    // TODO: Apply sorting to task list
+  }
+
   const getViewTitle = () => {
     switch (currentView) {
       case 'inbox': return '📥 收件箱'
       case 'today': return '📅 今天'
       case 'week': return '📆 未来 7 天'
       case 'overdue': return '⚠️ 已逾期'
+      case 'no-date': return '📋 无日期任务'
       case 'completed': return '✅ 已完成'
       case 'trash': return '🗑️ 回收站'
       default: return '📋 EZTODO'
@@ -64,12 +75,15 @@ export const Toolbar: React.FC = () => {
       </form>
 
       <div className="toolbar-actions">
-        <button className="btn-filter" title="筛选">
-          🔽
-        </button>
-        <button className="btn-sort" title="排序">
-          ↕️
-        </button>
+        <FilterBar
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
+        <SortMenu
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+        />
       </div>
     </div>
   )

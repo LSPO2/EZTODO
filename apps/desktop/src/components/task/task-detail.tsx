@@ -5,6 +5,8 @@
 import React, { useState, useEffect } from 'react'
 import type { Task, UpdateTaskRequest } from '../../lib/repositories'
 import { useTaskStore } from '../../stores'
+import { SubtaskList } from './subtask-list'
+import { AddSubtask } from './add-subtask'
 
 interface TaskDetailProps {
   task: Task
@@ -12,7 +14,7 @@ interface TaskDetailProps {
 }
 
 export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose }) => {
-  const { updateTask, deleteTask } = useTaskStore()
+  const { updateTask, deleteTask, loadTasks } = useTaskStore()
   const [formData, setFormData] = useState<UpdateTaskRequest>({})
   const [isSaving, setIsSaving] = useState(false)
 
@@ -50,6 +52,10 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose }) => {
     if (e.key === 'Enter' && e.ctrlKey) {
       handleSave()
     }
+  }
+
+  const handleSubtaskAdded = () => {
+    loadTasks()
   }
 
   return (
@@ -131,6 +137,20 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose }) => {
           onBlur={handleSave}
           placeholder="添加备注..."
           rows={4}
+        />
+      </div>
+
+      <div className="detail-section">
+        <h4>子任务</h4>
+        <SubtaskList
+          parentTask={task}
+          onTaskSelect={() => {
+            // TODO: Navigate to subtask
+          }}
+        />
+        <AddSubtask
+          parentTask={task}
+          onSubtaskAdded={handleSubtaskAdded}
         />
       </div>
 

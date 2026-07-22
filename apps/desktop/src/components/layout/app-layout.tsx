@@ -6,11 +6,12 @@ import React, { useEffect, useState } from 'react'
 import { Sidebar } from './sidebar'
 import { Toolbar } from './toolbar'
 import { TaskList, TaskDetail, QuickAdd } from '../task'
+import { ViewHeader } from '../view'
 import { useTaskStore, useProjectStore, useTagStore } from '../../stores'
 import type { Task } from '../../lib/repositories'
 
 export const AppLayout: React.FC = () => {
-  const { loadTasks, currentTask, setCurrentTask } = useTaskStore()
+  const { loadTasks, currentTask, setCurrentTask, currentView, tasks } = useTaskStore()
   const { loadProjects } = useProjectStore()
   const { loadTags } = useTagStore()
   const [showDetail, setShowDetail] = useState(false)
@@ -48,20 +49,24 @@ export const AppLayout: React.FC = () => {
       <div className="main-content">
         <Toolbar />
 
-        <QuickAdd onTaskCreated={handleTaskCreated} />
+        <div className="content-area">
+          <ViewHeader view={currentView} taskCount={tasks.length} />
 
-        <div className="task-area">
-          <TaskList
-            onTaskSelect={handleTaskSelect}
-            onTaskEdit={handleTaskEdit}
-          />
+          <QuickAdd onTaskCreated={handleTaskCreated} />
 
-          {showDetail && currentTask && (
-            <TaskDetail
-              task={currentTask}
-              onClose={handleCloseDetail}
+          <div className="task-area">
+            <TaskList
+              onTaskSelect={handleTaskSelect}
+              onTaskEdit={handleTaskEdit}
             />
-          )}
+
+            {showDetail && currentTask && (
+              <TaskDetail
+                task={currentTask}
+                onClose={handleCloseDetail}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
