@@ -1,11 +1,18 @@
 """Application configuration."""
 
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    """Application settings."""
+    """Application settings with strict validation."""
+
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+    )
 
     # App
     APP_ENV: str = "development"
@@ -42,11 +49,6 @@ class Settings(BaseSettings):
     AI_API_BASE: str = "https://api.openai.com/v1"
     AI_API_KEY: str = ""
     AI_MODEL: str = "gpt-4o-mini"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
 
 
 @lru_cache()
