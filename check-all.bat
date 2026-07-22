@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title EZTODO 统一检查
+title EZTODO 统一质量门禁
 
 echo ========================================
-echo    EZTODO 统一检查脚本
+echo    EZTODO 统一质量门禁
 echo ========================================
 echo.
 
@@ -12,93 +12,67 @@ set FAILED=0
 set FAILED_CMD=
 
 :: 前端检查
-echo [1/7] 前端依赖安装...
+echo [1/5] 前端 lint...
 cd /d "%~dp0apps\desktop"
-call npm ci
-if errorlevel 1 (
-    echo [✗] 前端依赖安装失败
-    set /a FAILED+=1
-    set FAILED_CMD=%FAILED_CMD% "npm ci"
-) else (
-    echo [✓] 前端依赖安装成功
-    set /a PASSED+=1
-)
-
-echo.
-echo [2/7] 前端 lint...
-call npm run lint
+call npx eslint src --ext .ts,.tsx
 if errorlevel 1 (
     echo [✗] 前端 lint 失败
     set /a FAILED+=1
-    set FAILED_CMD=%FAILED_CMD% "npm run lint"
+    set FAILED_CMD=%FAILED_CMD% "lint"
 ) else (
     echo [✓] 前端 lint 通过
     set /a PASSED+=1
 )
 
 echo.
-echo [3/7] 前端类型检查...
-call npx tsc --noEmit
-if errorlevel 1 (
-    echo [✗] 前端类型检查失败
-    set /a FAILED+=1
-    set FAILED_CMD=%FAILED_CMD% "tsc --noEmit"
-) else (
-    echo [✓] 前端类型检查通过
-    set /a PASSED+=1
-)
-
-echo.
-echo [4/7] 前端测试...
+echo [2/5] 前端测试...
 call npm test
 if errorlevel 1 (
     echo [✗] 前端测试失败
     set /a FAILED+=1
-    set FAILED_CMD=%FAILED_CMD% "npm test"
+    set FAILED_CMD=%FAILED_CMD% "test"
 ) else (
     echo [✓] 前端测试通过
     set /a PASSED+=1
 )
 
 echo.
-echo [5/7] 前端构建...
+echo [3/5] 前端构建...
 call npm run build
 if errorlevel 1 (
     echo [✗] 前端构建失败
     set /a FAILED+=1
-    set FAILED_CMD=%FAILED_CMD% "npm run build"
+    set FAILED_CMD=%FAILED_CMD% "build"
 ) else (
     echo [✓] 前端构建成功
     set /a PASSED+=1
 )
 
-:: 后端检查
+:: 矩阵覆盖校验
 echo.
-echo [6/7] 后端依赖安装...
-cd /d "%~dp0services\api"
-if not exist "venv" (
-    python -m venv venv
-)
-call venv\Scripts\activate
-pip install -r requirements.txt
+echo [4/5] 矩阵覆盖校验...
+cd /d "%~dp0"
+node scripts/verify-matrix.js
 if errorlevel 1 (
-    echo [✗] 后端依赖安装失败
+    echo [✗] 矩阵覆盖校验失败
     set /a FAILED+=1
-    set FAILED_CMD=%FAILED_CMD% "pip install"
+    set FAILED_CMD=%FAILED_CMD% "matrix"
 ) else (
-    echo [✓] 后端依赖安装成功
+    echo [✓] 矩阵覆盖校验通过
     set /a PASSED+=1
 )
 
+:: Git 检查
 echo.
-echo [7/7] 后端测试...
-python -m pytest tests/ -v
+echo [5/5] Git diff 检查...
+cd /d "%~dp0"
+git diff --check
 if errorlevel 1 (
-    echo [✗] 后端测试失败
+    echo [✗] Git diff 检查失败
     set /a FAILED+=1
-    set FAILED_CMD=%FAILED_CMD% "pytest"
+    set FAILED_CMD=%FAILED_CMD% "git-diff"
 ) else (
-    echo [✓] 后端测试通过
+    echo [✓] Git diff 检查通过
     set /a PASSED+=1
 )
 

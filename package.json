@@ -13,7 +13,11 @@
     "build:contracts": "npm run build -w packages/contracts",
     "lint": "npm run lint -w apps/desktop",
     "test": "npm run test -w apps/desktop",
-    "tauri": "npm run tauri -w apps/desktop"
+    "tauri": "npm run tauri -w apps/desktop",
+    "check:frontend": "npm run lint && npm run test && npm run build",
+    "check:api": "cd services/api && python -m pytest tests/ -v",
+    "check:matrix": "node scripts/verify-matrix.js",
+    "check:all": "npm run check:frontend && npm run check:matrix"
   },
   "engines": {
     "node": ">=18.0.0",
