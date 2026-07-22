@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,16 +10,24 @@ from core.database import init_db, close_db
 from api.v1.health import router as health_router
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
-    await init_db()
+    try:
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.warning(f"Database initialization failed: {e}. Some features may be unavailable.")
     yield
     # Shutdown
-    await close_db()
+    try:
+        await close_db()
+    except Exception:
+        pass
 
 
 app = FastAPI(

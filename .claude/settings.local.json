@@ -5,7 +5,10 @@
       "Bash(pip --version)",
       "Bash(npm create *)",
       "Bash(python -m venv venv)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(git push *)",
+      "Bash(docker *)",
+      "Bash(docker-compose up *)"
     ]
   }
 }
