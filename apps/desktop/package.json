@@ -49,6 +49,7 @@
     "vitest": "^1.0.0"
   },
   "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "^1.1.5"
+    "@rolldown/binding-linux-x64-gnu": "^1.1.5",
+    "lightningcss-linux-x64-gnu": "^1.33.0"
   }
 }
