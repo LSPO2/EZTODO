@@ -32,7 +32,21 @@ jobs:
         run: npm run build -w packages/contracts
 
       - name: Run tests
-        run: npm run test -w apps/desktop
+        id: frontend-tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test -w apps/desktop 2>&1 | tee vitest.log
+
+      - name: Publish test failure details
+        if: failure() && steps.frontend-tests.outcome == 'failure'
+        shell: bash
+        run: |
+          message="$(tail -c 6000 vitest.log)"
+          message="${message//'%'/'%25'}"
+          message="${message//$'\r'/'%0D'}"
+          message="${message//$'\n'/'%0A'}"
+          echo "::error title=Vitest failure::$message"
 
       - name: Build
         run: npm run build -w apps/desktop
