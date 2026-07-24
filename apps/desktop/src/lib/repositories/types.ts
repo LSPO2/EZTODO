@@ -109,7 +109,7 @@ export interface UpdateTagRequest {
 }
 
 // View and filter types
-export type ViewType = 'inbox' | 'today' | 'week' | 'overdue' | 'no-date' | 'completed' | 'trash'
+export type ViewType = 'all' | 'inbox' | 'today' | 'week' | 'overdue' | 'no-date' | 'completed' | 'trash'
 
 export interface TaskFilters {
   projectId?: string

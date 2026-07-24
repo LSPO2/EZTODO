@@ -22,6 +22,7 @@
     "core:window:allow-scale-factor",
     "core:window:allow-set-size",
     "core:window:allow-set-position",
+    "core:window:allow-request-user-attention",
     "core:window:allow-destroy",
     "shell:allow-open",
     "sql:allow-load",

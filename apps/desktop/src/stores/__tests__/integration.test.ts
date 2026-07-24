@@ -262,6 +262,16 @@ describe('P0-2 Store Integration', () => {
       expect(mockedTaskService.moveTask).toHaveBeenCalledWith('b', 'a')
     })
 
+    it('explains in Chinese when there is no previous sibling', async () => {
+      const firstTask = makeTask({ id: 'first', parentId: null, sortOrder: 0 })
+      useTaskStore.setState({ tasks: [firstTask], currentView: 'today' })
+      mockedGetRepositories.mockResolvedValue({
+        tasks: { findById: vi.fn().mockResolvedValue(firstTask) },
+      } as never)
+
+      await expect(useTaskStore.getState().indentTask('first'))
+        .rejects.toThrow('当前任务前面没有同级任务，无法设为上一项的子任务')
+    })
     it('outdentTask moves task to parent\'s parent', async () => {
       const parent = makeTask({ id: 'parent', parentId: null })
       const child = makeTask({ id: 'child', parentId: 'parent' })
@@ -285,7 +295,8 @@ describe('P0-2 Store Integration', () => {
         tasks: { findById: vi.fn().mockResolvedValue(task) },
       } as never)
 
-      await expect(useTaskStore.getState().outdentTask('t1')).rejects.toThrow()
+      await expect(useTaskStore.getState().outdentTask('t1'))
+        .rejects.toThrow('当前任务已经是顶级任务，无法移到上一级')
     })
   })
 

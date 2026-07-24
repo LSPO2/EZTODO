@@ -1,4 +1,5 @@
 import { getRepositories } from './repositories'
+import { isTauriEnvironment } from './environment'
 
 const AI_SETTINGS_KEY = 'ai.provider.config.v1'
 
@@ -26,6 +27,38 @@ export function getSessionApiKey(): string {
 
 export function clearSessionApiKey(): void {
   sessionApiKey = ''
+}
+
+export async function loadRememberedApiKey(): Promise<string> {
+  if (!isTauriEnvironment()) return sessionApiKey
+
+  const { invoke } = await import('@tauri-apps/api/core')
+  const apiKey = await invoke<string | null>('load_ai_api_key')
+  sessionApiKey = apiKey?.trim() || ''
+  return sessionApiKey
+}
+
+export async function saveApiKey(apiKey: string, remember = true): Promise<void> {
+  const normalized = apiKey.trim()
+  if (!normalized) throw new Error('请填写 API Key')
+
+  sessionApiKey = normalized
+  if (!isTauriEnvironment()) return
+
+  const { invoke } = await import('@tauri-apps/api/core')
+  if (remember) {
+    await invoke('store_ai_api_key', { apiKey: normalized })
+  } else {
+    await invoke('delete_ai_api_key')
+  }
+}
+
+export async function forgetRememberedApiKey(): Promise<void> {
+  sessionApiKey = ''
+  if (!isTauriEnvironment()) return
+
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('delete_ai_api_key')
 }
 
 export function validateAISettings(settings: AIProviderSettings): string | null {

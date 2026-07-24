@@ -6,8 +6,14 @@ import { vi } from 'vitest'
 import '@testing-library/jest-dom'
 
 // Mock Tauri APIs
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@tauri-apps/api/window', () => ({
+  UserAttentionType: { Critical: 1, Informational: 2 },
   getCurrentWindow: () => ({
+    requestUserAttention: vi.fn().mockResolvedValue(undefined),
     show: vi.fn(),
     hide: vi.fn(),
     close: vi.fn(),

@@ -48,6 +48,7 @@ interface TaskState {
   batchAddTag: (tagId: string) => Promise<BatchResult>
   batchRemoveTag: (tagId: string) => Promise<BatchResult>
   undoLastBatch: () => Promise<BatchResult>
+  dismissUndoableBatch: () => void
   copyTask: (id: string, withChildren?: boolean) => Promise<Task>
   reorderSiblingTasks: (parentId: string | null, orderedIds: string[]) => Promise<Task[]>
   searchTasks: (query: string) => Promise<void>
@@ -488,14 +489,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     try {
       const repos = await getRepositories()
       const task = await repos.tasks.findById(id)
-      if (!task) throw new Error('Task not found')
+      if (!task) throw new Error('任务不存在')
 
-      // Find the previous sibling (same parent, lower sort order)
-      const siblings = task.parentId
-        ? await repos.tasks.findByParentId(task.parentId)
-        : (await repos.tasks.findByView(get().currentView)).filter(t => !t.parentId)
+      // Use the currently displayed order so "previous item" matches what the
+      // user actually sees, including active sorting and filters.
+      const siblings = get().tasks.filter(candidate =>
+        candidate.parentId === task.parentId && !candidate.deletedAt
+      )
       const taskIndex = siblings.findIndex(s => s.id === id)
-      if (taskIndex <= 0) throw new Error('No previous sibling to indent under')
+      if (taskIndex <= 0) {
+        throw new Error('当前任务前面没有同级任务，无法设为上一项的子任务')
+      }
 
       const newParent = siblings[taskIndex - 1]
       const result = await taskService.moveTask(id, newParent.id)
@@ -503,7 +507,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       await get().loadTasks()
       set({ isLoading: false })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Indent failed'
+      const message = error instanceof Error ? error.message : '设为子任务失败'
       set({ error: message, isLoading: false })
       throw error
     }
@@ -514,21 +518,25 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     try {
       const repos = await getRepositories()
       const task = await repos.tasks.findById(id)
-      if (!task || !task.parentId) throw new Error('Task has no parent to outdent from')
+      if (!task || !task.parentId) {
+        throw new Error('当前任务已经是顶级任务，无法移到上一级')
+      }
 
       const parent = await repos.tasks.findById(task.parentId)
-      if (!parent) throw new Error('Parent task not found')
+      if (!parent) throw new Error('上级任务不存在')
 
       const result = await taskService.moveTask(id, parent.parentId)
       if (!result.success) throw new Error(result.error)
       await get().loadTasks()
       set({ isLoading: false })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outdent failed'
+      const message = error instanceof Error ? error.message : '移到上一级失败'
       set({ error: message, isLoading: false })
       throw error
     }
   },
+  dismissUndoableBatch: () => set({ undoableBatch: null }),
+
   copyTask: async (id: string, withChildren: boolean = false) => {
     set({ isLoading: true, error: null })
     try {

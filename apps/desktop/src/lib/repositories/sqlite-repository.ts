@@ -337,12 +337,19 @@ export class SQLiteTaskRepository implements TaskRepository {
 
     // View filter
     switch (view) {
+      case 'all':
+        conditions.push(`t.parent_id IS NULL AND t.status = 'todo' AND t.deleted_at IS NULL`)
+        break
       case 'inbox':
         conditions.push(`t.parent_id IS NULL AND t.project_id IS NULL AND t.status = 'todo' AND t.deleted_at IS NULL`)
         break
       case 'today':
         conditions.push(`t.parent_id IS NULL AND t.status = 'todo' AND t.deleted_at IS NULL`)
-        conditions.push(`(t.scheduled_date = date('now', 'localtime') OR t.due_at <= datetime('now'))`)
+        conditions.push(`(
+          t.scheduled_date = date('now', 'localtime')
+          OR t.due_at <= datetime('now')
+          OR (t.scheduled_date IS NULL AND t.scheduled_at IS NULL AND t.due_at IS NULL)
+        )`)
         break
       case 'week':
         conditions.push(`t.parent_id IS NULL AND t.status = 'todo' AND t.deleted_at IS NULL`)

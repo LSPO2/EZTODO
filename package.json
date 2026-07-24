@@ -1,7 +1,7 @@
 {
   "name": "eztodo",
   "private": true,
-  "version": "0.1.0-m0",
+  "version": "2.0.0",
   "description": "EZTODO - AI Todo Application",
   "workspaces": [
     "apps/desktop",
@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev -w apps/desktop",
     "build": "npm run build -w apps/desktop",
+    "release:desktop": "npm run tauri -w apps/desktop -- build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-root-exe-shortcut.ps1",
     "build:contracts": "npm run build -w packages/contracts",
     "lint": "npm run lint -w apps/desktop",
     "test": "npm run test -w apps/desktop",

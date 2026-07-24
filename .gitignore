@@ -66,6 +66,4 @@ apps/desktop/src-tauri/gen/
 *.bak
 *.swp
 
-# Project planning deliverables (root folder, not Rust build output)
-!/target/
-!/target/*.md
+EZTODO 最新版.lnk

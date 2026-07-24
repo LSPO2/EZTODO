@@ -68,6 +68,27 @@ describe('BrowserTaskRepository', () => {
     expect(tasks.length).toBeGreaterThanOrEqual(2)
   })
 
+  it('includes undated tasks in Today and exposes soft-deleted tasks in Trash', async () => {
+    const undated = await repo.create({ title: 'Undated Today' })
+    await repo.create({ title: 'Future', scheduledDate: '2099-12-31' })
+    const deleted = await repo.create({ title: 'Move to trash' })
+    await repo.delete(deleted.id)
+
+    const todayTasks = await repo.findByView('today')
+    const trashTasks = await repo.findByView('trash')
+
+    expect(todayTasks.some(task => task.id === undated.id)).toBe(true)
+    expect(todayTasks.some(task => task.title === 'Future')).toBe(false)
+    expect(trashTasks.some(task => task.id === deleted.id && task.deletedAt)).toBe(true)
+  })
+  it('filters all active TODOs by category regardless of schedule', async () => {
+    const categorized = await repo.create({ title: 'Categorized future', projectId: 'category-1', scheduledDate: '2099-12-31' })
+    await repo.create({ title: 'Other category', projectId: 'category-2' })
+
+    const tasks = await repo.findByView('all', { projectId: 'category-1' })
+
+    expect(tasks.map(task => task.id)).toEqual([categorized.id])
+  })
   it('should search tasks', async () => {
     await repo.create({ title: 'Searchable Task' })
     await repo.create({ title: 'Other Task' })

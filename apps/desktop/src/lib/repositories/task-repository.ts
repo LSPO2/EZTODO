@@ -286,11 +286,18 @@ export class TaskRepository {
 
     // Apply view filter
     switch (view) {
+      case 'all':
+        whereClause += ` AND parent_id IS NULL AND status = 'todo'`
+        break
       case 'inbox':
         whereClause += ` AND project_id IS NULL AND status = 'todo'`
         break
       case 'today':
-        whereClause += ` AND (scheduled_date = $${paramIndex++} OR due_at <= $${paramIndex++}) AND status = 'todo'`
+        whereClause += ` AND (
+          scheduled_date = $${paramIndex++}
+          OR due_at <= $${paramIndex++}
+          OR (scheduled_date IS NULL AND scheduled_at IS NULL AND due_at IS NULL)
+        ) AND status = 'todo'`
         params.push(today, now)
         break
       case 'week': {

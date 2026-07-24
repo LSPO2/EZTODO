@@ -14,7 +14,7 @@ import type {
 import { validateTaskTitle } from '../repositories'
 async function syncTaskReminder(task: Task): Promise<void> {
   const { reminderScheduler } = await import('../reminder')
-  reminderScheduler.syncTask(task)
+  await reminderScheduler.syncTask(task)
 }
 
 async function cancelTaskReminder(taskId: string): Promise<void> {
@@ -550,8 +550,8 @@ export class TaskService {
    * Reorder siblings by assigning contiguous sort_order values.
    *
    * @param parentId  Parent whose children to reorder (null = root tasks)
-   * @param orderedIds  The desired order of child IDs. Must contain exactly
-   *                    the same IDs as the current children (no additions/removals).
+   * @param orderedIds  The desired order of the visible child IDs. Hidden
+   *                    siblings keep their relative slots.
    * @returns The reordered task list, or an error if orderedIds doesn't match.
    */
   async reorderSiblingTasks(parentId: string | null, orderedIds: string[]): Promise<TaskServiceResult<Task[]>> {
@@ -559,13 +559,18 @@ export class TaskService {
       const repos = await getRepositories()
       const children = parentId
         ? await repos.tasks.findByParentId(parentId)
-        : (await repos.tasks.findByView('inbox')).filter(t => !t.parentId)
+        : [
+            ...(await repos.tasks.findByView('all', { parentOnly: true })),
+            ...(await repos.tasks.findByView('completed', { parentOnly: true })),
+          ]
 
-      // Validate that orderedIds contains exactly the same IDs
+      // A filtered view only knows about its visible siblings. Validate that
+      // subset, then merge it into the full sibling list without disturbing
+      // the relative positions of hidden tasks.
       const currentIds = new Set(children.map(c => c.id))
       const providedIds = new Set(orderedIds)
-      if (currentIds.size !== providedIds.size) {
-        return { success: false, error: '排序列表必须包含且仅包含当前所有子任务' }
+      if (providedIds.size !== orderedIds.length) {
+        return { success: false, error: '排序列表不能包含重复任务' }
       }
       for (const id of orderedIds) {
         if (!currentIds.has(id)) {
@@ -573,10 +578,16 @@ export class TaskService {
         }
       }
 
+      const visibleIds = new Set(orderedIds)
+      let visibleIndex = 0
+      const mergedIds = [...children]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map(child => visibleIds.has(child.id) ? orderedIds[visibleIndex++] : child.id)
+
       // Assign contiguous sort_order values
       const updated: Task[] = []
-      for (let i = 0; i < orderedIds.length; i++) {
-        const task = await repos.tasks.update(orderedIds[i], { sortOrder: i })
+      for (let i = 0; i < mergedIds.length; i++) {
+        const task = await repos.tasks.update(mergedIds[i], { sortOrder: i })
         updated.push(task)
       }
 

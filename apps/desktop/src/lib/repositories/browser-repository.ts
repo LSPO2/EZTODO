@@ -175,13 +175,20 @@ export class BrowserTaskRepository implements TaskRepository {
 
     // Apply view filter
     switch (view) {
+      case 'all':
+        tasks = tasks.filter((t: Task) => !t.parentId && t.status === 'todo')
+        break
       case 'inbox':
         tasks = tasks.filter((t: Task) => !t.projectId && !t.parentId && t.status === 'todo')
         break
       case 'today':
         tasks = tasks.filter((t: Task) =>
           !t.parentId && t.status === 'todo' &&
-          (t.scheduledDate === today || !t.scheduledDate)
+          (
+            t.scheduledDate === today ||
+            (t.dueAt !== null && new Date(t.dueAt) <= now) ||
+            (!t.scheduledDate && !t.scheduledAt && !t.dueAt)
+          )
         )
         break
       case 'week': {

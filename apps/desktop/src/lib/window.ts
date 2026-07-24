@@ -4,6 +4,18 @@
 
 import { getCurrentWindow, LogicalSize, LogicalPosition } from '@tauri-apps/api/window'
 
+type WindowCloseGuard = () => Promise<boolean>
+let windowCloseGuard: WindowCloseGuard | null = null
+
+export function registerWindowCloseGuard(guard: WindowCloseGuard): () => void {
+  windowCloseGuard = guard
+  return () => { if (windowCloseGuard === guard) windowCloseGuard = null }
+}
+
+export async function confirmWindowClose(): Promise<boolean> {
+  return windowCloseGuard ? windowCloseGuard() : true
+}
+
 export interface WindowState {
   width: number
   height: number
@@ -85,9 +97,8 @@ async function restoreWindowState(): Promise<void> {
 function setupCloseToTray(): void {
   const window = getCurrentWindow()
   window.onCloseRequested(async (event) => {
-    // Prevent the default close behavior
     event.preventDefault()
-    // Hide to tray instead
+    if (!(await confirmWindowClose())) return
     await hideToTray()
   })
 }

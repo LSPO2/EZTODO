@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegui/nicegui/main/nicegui/static/tauri_conf_schema.json",
   "productName": "EZTODO",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "identifier": "com.eztodo.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",

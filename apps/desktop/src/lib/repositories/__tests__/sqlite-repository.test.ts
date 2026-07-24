@@ -101,10 +101,21 @@ describe('SQLite transactional P0-2 batches', () => {
     const sql = String(fake.select.mock.calls[0][0])
     const params = fake.select.mock.calls[0][1]
     expect(sql).toContain("date('now', 'localtime')")
+    expect(sql).toContain('t.scheduled_date IS NULL AND t.scheduled_at IS NULL AND t.due_at IS NULL')
     expect(sql).not.toContain('INTERVAL')
     expect(sql.match(/EXISTS \(SELECT 1 FROM task_tags/g)).toHaveLength(2)
     expect(sql).toContain('ORDER BY t.due_at DESC')
     expect(params).toEqual(['project-1', 'p1', 'todo', '%report%', 'tag-1', 'tag-2'])
+  })
+  it('builds an all-active-TODO query for category navigation', async () => {
+    const fake = makeDb()
+    const repo = new SQLiteTaskRepository(fake.db)
+
+    await repo.findByView('all', { projectId: 'category-1' })
+
+    const sql = String(fake.select.mock.calls[0][0])
+    expect(sql).toContain("t.parent_id IS NULL AND t.status = 'todo' AND t.deleted_at IS NULL")
+    expect(fake.select.mock.calls[0][1]).toEqual(['category-1'])
   })
   it('writes tag relationship changes to outbox with the same batch id', async () => {
     const fake = makeDb()

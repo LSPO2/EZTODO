@@ -109,7 +109,9 @@ describe('TaskService reorderSiblingTasks', () => {
     mockedGetRepositories.mockResolvedValue({
       tasks: {
         findByParentId: vi.fn().mockResolvedValue([a, b, c]),
-        findByView: vi.fn().mockResolvedValue([a, b, c]),
+        findByView: vi.fn()
+          .mockResolvedValueOnce([a, b, c])
+          .mockResolvedValueOnce([]),
         update,
       },
     } as never)
@@ -122,23 +124,35 @@ describe('TaskService reorderSiblingTasks', () => {
     expect(update).toHaveBeenCalledWith('b', { sortOrder: 2 })
   })
 
-  it('rejects when orderedIds has wrong count', async () => {
+  it('reorders a visible subset while preserving hidden sibling slots', async () => {
+    const a = makeTask({ id: 'a', sortOrder: 0 })
+    const b = makeTask({ id: 'b', sortOrder: 1 })
+    const c = makeTask({ id: 'c', sortOrder: 2 })
+    const d = makeTask({ id: 'd', sortOrder: 3 })
+    const update = vi.fn(async (id: string, updates: Record<string, unknown>) => {
+      return makeTask({ id, sortOrder: updates.sortOrder as number })
+    })
+
     mockedGetRepositories.mockResolvedValue({
       tasks: {
-        findByParentId: vi.fn().mockResolvedValue([
-          makeTask({ id: 'a' }), makeTask({ id: 'b' }),
-        ]),
-        findByView: vi.fn().mockResolvedValue([
-          makeTask({ id: 'a' }), makeTask({ id: 'b' }),
-        ]),
+        findByParentId: vi.fn().mockResolvedValue([a, b, c, d]),
+        findByView: vi.fn()
+          .mockResolvedValueOnce([a, b, c, d])
+          .mockResolvedValueOnce([]),
+        update,
       },
     } as never)
 
-    const result = await taskService.reorderSiblingTasks(null, ['a'])
-    expect(result.success).toBe(false)
-    expect(result.error).toContain('包含')
-  })
+    const result = await taskService.reorderSiblingTasks(null, ['d', 'b'])
 
+    expect(result.success).toBe(true)
+    expect(update.mock.calls.map(([id, updates]) => [id, updates.sortOrder])).toEqual([
+      ['a', 0],
+      ['d', 1],
+      ['c', 2],
+      ['b', 3],
+    ])
+  })
   it('rejects when orderedIds contains unknown id', async () => {
     mockedGetRepositories.mockResolvedValue({
       tasks: {
@@ -154,5 +168,21 @@ describe('TaskService reorderSiblingTasks', () => {
     const result = await taskService.reorderSiblingTasks(null, ['a', 'x'])
     expect(result.success).toBe(false)
     expect(result.error).toContain('不是当前层级')
+  })
+  it('rejects duplicate ordered ids', async () => {
+    mockedGetRepositories.mockResolvedValue({
+      tasks: {
+        findByParentId: vi.fn().mockResolvedValue([
+          makeTask({ id: 'a' }), makeTask({ id: 'b' }),
+        ]),
+        findByView: vi.fn()
+          .mockResolvedValueOnce([makeTask({ id: 'a' }), makeTask({ id: 'b' })])
+          .mockResolvedValueOnce([]),
+      },
+    } as never)
+
+    const result = await taskService.reorderSiblingTasks(null, ['a', 'a'])
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('重复')
   })
 })

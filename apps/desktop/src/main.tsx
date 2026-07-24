@@ -37,14 +37,12 @@ async function initializeApp() {
     // Initialize reminder scheduler
     await reminderScheduler.start()
 
-    // Set up reminder notification handler
+    // Deliver a native Windows notification, play a system sound and flash the taskbar.
+    const { deliverReminderNotification } = await import('./lib/reminder-notification')
     reminderScheduler.onTrigger((reminder) => {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('EZTODO 提醒', {
-          body: reminder.taskTitle,
-          icon: '/favicon.ico',
-        })
-      }
+      void deliverReminderNotification(reminder).catch((error) => {
+        console.error('Failed to deliver reminder notification:', error)
+      })
     })
 
     console.log('Application initialized successfully')
@@ -53,10 +51,6 @@ async function initializeApp() {
   }
 }
 
-// Request notification permission
-if ('Notification' in window && Notification.permission === 'default') {
-  Notification.requestPermission()
-}
 
 // Initialize app
 initializeApp()

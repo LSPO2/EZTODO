@@ -6,17 +6,37 @@ import { TrayIcon, type TrayIconEvent } from '@tauri-apps/api/tray'
 import { Menu } from '@tauri-apps/api/menu'
 import { defaultWindowIcon } from '@tauri-apps/api/app'
 import { Image } from '@tauri-apps/api/image'
-import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { hideToTray, showFromTray, isWindowVisible } from './window'
+import { confirmWindowClose, showFromTray } from './window'
+import { requestTrayNavigation } from './tray-navigation'
 
+const TRAY_ID = 'eztodo-tray'
 let trayIcon: TrayIcon | null = null
+let trayInitialization: Promise<void> | null = null
 
 /**
  * Initialize system tray
  */
 export async function initializeTray(): Promise<void> {
+  if (trayIcon) return
+  if (trayInitialization) return trayInitialization
+
+  trayInitialization = initializeTrayOnce()
   try {
+    await trayInitialization
+  } finally {
+    trayInitialization = null
+  }
+}
+
+async function initializeTrayOnce(): Promise<void> {
+  try {
+    const existingTray = await TrayIcon.getById(TRAY_ID)
+    if (existingTray) {
+      trayIcon = existingTray
+      console.log('Using existing system tray')
+      return
+    }
     // Create tray menu
     const menu = await createTrayMenu()
     const icon = await defaultWindowIcon()
@@ -27,7 +47,7 @@ export async function initializeTray(): Promise<void> {
 
     // Create tray icon
     trayIcon = await TrayIcon.new({
-      id: 'eztodo-tray',
+      id: TRAY_ID,
       icon,
       menu,
       menuOnLeftClick: false,
@@ -58,11 +78,6 @@ async function createTrayMenu(): Promise<Menu> {
         action: handleShowToday,
       },
       {
-        id: 'sync',
-        text: '同步',
-        action: handleSync,
-      },
-      {
         id: 'settings',
         text: '设置',
         action: handleSettings,
@@ -84,13 +99,10 @@ async function handleTrayClick(event: TrayIconEvent): Promise<void> {
     return
   }
 
-  const isVisible = await isWindowVisible()
-
-  if (isVisible) {
-    await hideToTray()
-  } else {
-    await showFromTray()
-  }
+  // A tray click should be idempotent. Windows can emit multiple click
+  // notifications for one physical interaction, so toggling visibility here
+  // causes the window to hide and immediately show again.
+  await handleQuickAdd()
 }
 
 /**
@@ -98,7 +110,7 @@ async function handleTrayClick(event: TrayIconEvent): Promise<void> {
  */
 async function handleQuickAdd(): Promise<void> {
   await showFromTray()
-  await emit('tray:quick-add')
+  requestTrayNavigation('quick-add')
 }
 
 /**
@@ -106,14 +118,7 @@ async function handleQuickAdd(): Promise<void> {
  */
 async function handleShowToday(): Promise<void> {
   await showFromTray()
-  await emit('tray:show-today')
-}
-
-/**
- * Handle sync from tray menu
- */
-async function handleSync(): Promise<void> {
-  await emit('tray:sync')
+  requestTrayNavigation('today')
 }
 
 /**
@@ -121,14 +126,14 @@ async function handleSync(): Promise<void> {
  */
 async function handleSettings(): Promise<void> {
   await showFromTray()
-  await emit('tray:settings')
+  requestTrayNavigation('settings')
 }
 
 /**
  * Handle quit from tray menu
  */
 async function handleQuit(): Promise<void> {
-  // Destroy the window to actually quit the application
+  if (!(await confirmWindowClose())) return
   const window = getCurrentWindow()
   await window.destroy()
 }
