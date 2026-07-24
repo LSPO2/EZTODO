@@ -1,10 +1,10 @@
 /**
  * Trash/Recycle bin module
- * Handles soft delete, restore, and permanent delete
+ * Uses repository-layer soft-delete (deleted_at column) instead of a separate trash table.
+ * Compatible with the existing SQLite migration schema.
  */
 
-import { getDatabase } from './database'
-import { v4 as uuidv4 } from 'uuid'
+import { getSqlRepository } from './repositories/sql-repository'
 
 export type EntityType = 'task' | 'project' | 'tag'
 
@@ -12,7 +12,7 @@ export interface TrashItem {
   id: string
   entityType: EntityType
   entityId: string
-  entityData: string  // JSON string
+  entityData: string  // JSON string of the entity
   parentId: string | null
   originalProjectId: string | null
   deletedAt: string
@@ -29,192 +29,153 @@ export interface TrashStats {
   newestItem: string | null
 }
 
+const TRASH_TTL_DAYS = 30
+
 /**
- * Move item to trash
+ * Move a task to trash (soft-delete with subtree)
  */
 export async function moveToTrash(
   entityType: EntityType,
   entityId: string,
-  entityData: any,
-  parentId?: string | null,
-  originalProjectId?: string | null
+  _entityData?: any,
+  _parentId?: string | null,
+  _originalProjectId?: string | null
 ): Promise<string> {
-  const db = await getDatabase()
-  const now = new Date()
-  const deletedAt = now.toISOString()
-  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-  const trashId = uuidv4()
+  const db = await getSqlRepository()
+  const now = new Date().toISOString()
 
-  await db.execute(
-    `INSERT INTO trash (id, entity_type, entity_id, entity_data, parent_id, original_project_id, deleted_at, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [trashId, entityType, entityId, JSON.stringify(entityData), parentId || null, originalProjectId || null, deletedAt, expiresAt]
-  )
-
-  // Mark original entity as deleted
   switch (entityType) {
-    case 'task':
-      await db.execute(
-        `UPDATE tasks SET deleted_at = $1, updated_at = $1, revision = revision + 1 WHERE id = $2`,
-        [deletedAt, entityId]
-      )
-      // Also mark child tasks
+    case 'task': {
+      // Soft-delete the task and all descendants
       await db.execute(
         `UPDATE tasks SET deleted_at = $1, updated_at = $1, revision = revision + 1
-         WHERE parent_id = $2 OR id IN (
-           SELECT id FROM tasks WHERE parent_id IN (
-             SELECT id FROM tasks WHERE parent_id = $2
-           )
+         WHERE id = $2 OR parent_id = $2 OR parent_id IN (
+           SELECT id FROM tasks WHERE parent_id = $2
          )`,
-        [deletedAt, entityId]
+        [now, entityId]
       )
       break
-
-    case 'project':
+    }
+    case 'project': {
       await db.execute(
         `UPDATE projects SET deleted_at = $1, updated_at = $1 WHERE id = $2`,
-        [deletedAt, entityId]
+        [now, entityId]
       )
       break
-
-    case 'tag':
-      await db.execute(
-        `DELETE FROM tags WHERE id = $1`,
-        [entityId]
-      )
+    }
+    case 'tag': {
+      // Tags use hard delete (no deleted_at column in tags table)
+      await db.execute('DELETE FROM tags WHERE id = $1', [entityId])
       break
+    }
   }
 
-  return trashId
+  return entityId
 }
 
 /**
- * Get all trash items
+ * Get all trash items (deleted tasks and projects)
  */
 export async function getTrashItems(
   entityType?: EntityType,
   limit = 100,
   offset = 0
 ): Promise<TrashItem[]> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
+  const cutoff = new Date(Date.now() - TRASH_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const items: TrashItem[] = []
 
-  let query = `SELECT * FROM trash WHERE expires_at > $1`
-  const params: any[] = [new Date().toISOString()]
-
-  if (entityType) {
-    query += ` AND entity_type = $${params.length + 1}`
-    params.push(entityType)
+  if (!entityType || entityType === 'task') {
+    const tasks = await db.select(
+      `SELECT id, parent_id, project_id, title, note, status, priority, sort_order,
+              scheduled_date, scheduled_at, due_at, is_all_day, timezone, estimated_minutes,
+              created_at, updated_at, completed_at, deleted_at, revision, source, source_capture_id
+       FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at >= $1
+       ORDER BY deleted_at DESC LIMIT $2 OFFSET $3`,
+      [cutoff, limit, offset]
+    )
+    for (const t of tasks) {
+      items.push({
+        id: `task-${t.id}`,
+        entityType: 'task',
+        entityId: t.id,
+        entityData: JSON.stringify(t),
+        parentId: t.parent_id,
+        originalProjectId: t.project_id,
+        deletedAt: t.deleted_at,
+        expiresAt: new Date(new Date(t.deleted_at).getTime() + TRASH_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        syncedAt: null,
+      })
+    }
   }
 
-  query += ` ORDER BY deleted_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
-  params.push(limit, offset)
+  if (!entityType || entityType === 'project') {
+    const projects = await db.select(
+      `SELECT id, name, color, icon, sort_order, created_at, updated_at, deleted_at
+       FROM projects WHERE deleted_at IS NOT NULL AND deleted_at >= $1
+       ORDER BY deleted_at DESC LIMIT $2 OFFSET $3`,
+      [cutoff, limit, offset]
+    )
+    for (const p of projects) {
+      items.push({
+        id: `project-${p.id}`,
+        entityType: 'project',
+        entityId: p.id,
+        entityData: JSON.stringify(p),
+        parentId: null,
+        originalProjectId: null,
+        deletedAt: p.deleted_at,
+        expiresAt: new Date(new Date(p.deleted_at).getTime() + TRASH_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        syncedAt: null,
+      })
+    }
+  }
 
-  const result = await db.select(query, params)
+  // Sort by deletedAt descending
+  items.sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime())
 
-  return result.map((row: any) => ({
-    id: row.id,
-    entityType: row.entity_type,
-    entityId: row.entity_id,
-    entityData: row.entity_data,
-    parentId: row.parent_id,
-    originalProjectId: row.original_project_id,
-    deletedAt: row.deleted_at,
-    expiresAt: row.expires_at,
-    syncedAt: row.synced_at,
-  }))
+  return items.slice(0, limit)
 }
 
 /**
  * Get trash item by entity ID
  */
 export async function getTrashItemByEntityId(entityId: string): Promise<TrashItem | null> {
-  const db = await getDatabase()
-
-  const result = await db.select(
-    `SELECT * FROM trash WHERE entity_id = $1`,
-    [entityId]
-  )
-
-  if (result.length === 0) {
-    return null
-  }
-
-  const row = result[0]
-  return {
-    id: row.id,
-    entityType: row.entity_type,
-    entityId: row.entity_id,
-    entityData: row.entity_data,
-    parentId: row.parent_id,
-    originalProjectId: row.original_project_id,
-    deletedAt: row.deleted_at,
-    expiresAt: row.expires_at,
-    syncedAt: row.synced_at,
-  }
+  const items = await getTrashItems(undefined, 1000)
+  return items.find(item => item.entityId === entityId) || null
 }
 
 /**
  * Restore item from trash
  */
 export async function restoreFromTrash(trashId: string): Promise<boolean> {
-  const db = await getDatabase()
-
-  // Get trash item
-  const result = await db.select(
-    `SELECT * FROM trash WHERE id = $1`,
-    [trashId]
-  )
-
-  if (result.length === 0) {
-    return false
-  }
-
-  const trashItem = result[0]
-  const entityData = JSON.parse(trashItem.entity_data)
+  const db = await getSqlRepository()
   const now = new Date().toISOString()
 
-  // Restore based on entity type
-  switch (trashItem.entity_type) {
+  // Parse trashId format: "task-{id}" or "project-{id}"
+  const [entityType, entityId] = trashId.split('-', 2)
+  if (!entityId) return false
+
+  switch (entityType) {
     case 'task': {
-      // Restore task
+      // Restore task and all deleted descendants
       await db.execute(
-        `UPDATE tasks SET deleted_at = NULL, updated_at = $1, revision = revision + 1 WHERE id = $2`,
-        [now, trashItem.entity_id]
+        `UPDATE tasks SET deleted_at = NULL, updated_at = $1, revision = revision + 1
+         WHERE id = $2 OR (parent_id = $2 AND deleted_at IS NOT NULL)`,
+        [now, entityId]
       )
-
-      // Restore child tasks
-      const childTasks = await db.select(
-        `SELECT id FROM tasks WHERE parent_id = $1 AND deleted_at IS NOT NULL`,
-        [trashItem.entity_id]
-      )
-
-      for (const child of childTasks) {
-        await db.execute(
-          `UPDATE tasks SET deleted_at = NULL, updated_at = $1, revision = revision + 1 WHERE id = $2`,
-          [now, child.id]
-        )
-      }
       break
     }
-
-    case 'project':
+    case 'project': {
       await db.execute(
         `UPDATE projects SET deleted_at = NULL, updated_at = $1 WHERE id = $2`,
-        [now, trashItem.entity_id]
+        [now, entityId]
       )
       break
-
-    case 'tag':
-      // Re-insert tag
-      await db.execute(
-        `INSERT INTO tags (id, name, color, created_at) VALUES ($1, $2, $3, $4)`,
-        [entityData.id, entityData.name, entityData.color, entityData.created_at]
-      )
-      break
+    }
+    default:
+      return false
   }
-
-  // Remove from trash
-  await db.execute(`DELETE FROM trash WHERE id = $1`, [trashId])
 
   return true
 }
@@ -224,14 +185,10 @@ export async function restoreFromTrash(trashId: string): Promise<boolean> {
  */
 export async function restoreMultipleFromTrash(trashIds: string[]): Promise<number> {
   let restored = 0
-
   for (const trashId of trashIds) {
     const success = await restoreFromTrash(trashId)
-    if (success) {
-      restored++
-    }
+    if (success) restored++
   }
-
   return restored
 }
 
@@ -239,38 +196,21 @@ export async function restoreMultipleFromTrash(trashIds: string[]): Promise<numb
  * Permanently delete item from trash
  */
 export async function permanentlyDelete(trashId: string): Promise<boolean> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
-  // Get trash item
-  const result = await db.select(
-    `SELECT * FROM trash WHERE id = $1`,
-    [trashId]
-  )
+  const [entityType, entityId] = trashId.split('-', 2)
+  if (!entityId) return false
 
-  if (result.length === 0) {
-    return false
-  }
-
-  const trashItem = result[0]
-
-  // Permanently delete based on entity type
-  switch (trashItem.entity_type) {
+  switch (entityType) {
     case 'task':
-      // Delete task permanently (cascade will handle children)
-      await db.execute(`DELETE FROM tasks WHERE id = $1`, [trashItem.entity_id])
+      await db.execute('DELETE FROM tasks WHERE id = $1', [entityId])
       break
-
     case 'project':
-      await db.execute(`DELETE FROM projects WHERE id = $1`, [trashItem.entity_id])
+      await db.execute('DELETE FROM projects WHERE id = $1', [entityId])
       break
-
-    case 'tag':
-      // Already deleted
-      break
+    default:
+      return false
   }
-
-  // Remove from trash
-  await db.execute(`DELETE FROM trash WHERE id = $1`, [trashId])
 
   return true
 }
@@ -280,33 +220,30 @@ export async function permanentlyDelete(trashId: string): Promise<boolean> {
  */
 export async function permanentlyDeleteMultiple(trashIds: string[]): Promise<number> {
   let deleted = 0
-
   for (const trashId of trashIds) {
     const success = await permanentlyDelete(trashId)
-    if (success) {
-      deleted++
-    }
+    if (success) deleted++
   }
-
   return deleted
 }
 
 /**
- * Empty trash (delete all items)
+ * Empty trash (permanently delete all soft-deleted items)
  */
 export async function emptyTrash(): Promise<number> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
-  // Get all trash items
-  const items = await db.select(`SELECT * FROM trash`)
+  const tasks = await db.select(`SELECT id FROM tasks WHERE deleted_at IS NOT NULL`)
+  const projects = await db.select(`SELECT id FROM projects WHERE deleted_at IS NOT NULL`)
 
-  // Delete each item
   let deleted = 0
-  for (const item of items) {
-    const success = await permanentlyDelete(item.id)
-    if (success) {
-      deleted++
-    }
+  for (const t of tasks) {
+    await db.execute('DELETE FROM tasks WHERE id = $1', [t.id])
+    deleted++
+  }
+  for (const p of projects) {
+    await db.execute('DELETE FROM projects WHERE id = $1', [p.id])
+    deleted++
   }
 
   return deleted
@@ -316,54 +253,59 @@ export async function emptyTrash(): Promise<number> {
  * Get trash statistics
  */
 export async function getTrashStats(): Promise<TrashStats> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
-  const stats = await db.select(
-    `SELECT
-       COUNT(*) as total,
-       SUM(CASE WHEN entity_type = 'task' THEN 1 ELSE 0 END) as tasks,
-       SUM(CASE WHEN entity_type = 'project' THEN 1 ELSE 0 END) as projects,
-       SUM(CASE WHEN entity_type = 'tag' THEN 1 ELSE 0 END) as tags,
-       MIN(deleted_at) as oldest,
-       MAX(deleted_at) as newest
-     FROM trash
-     WHERE expires_at > $1`,
-    [new Date().toISOString()]
+  const taskStats = await db.select(
+    `SELECT COUNT(*) as count, MIN(deleted_at) as oldest, MAX(deleted_at) as newest
+     FROM tasks WHERE deleted_at IS NOT NULL`
+  )
+  const projectStats = await db.select(
+    `SELECT COUNT(*) as count, MIN(deleted_at) as oldest, MAX(deleted_at) as newest
+     FROM projects WHERE deleted_at IS NOT NULL`
   )
 
+  const tCount = taskStats[0]?.count || 0
+  const pCount = projectStats[0]?.count || 0
+  const tOldest = taskStats[0]?.oldest
+  const pOldest = projectStats[0]?.oldest
+  const tNewest = taskStats[0]?.newest
+  const pNewest = projectStats[0]?.newest
+
+  const allOldest = [tOldest, pOldest].filter(Boolean).sort()[0] || null
+  const allNewest = [tNewest, pNewest].filter(Boolean).sort().reverse()[0] || null
+
   return {
-    totalItems: stats[0]?.total || 0,
-    tasks: stats[0]?.tasks || 0,
-    projects: stats[0]?.projects || 0,
-    tags: stats[0]?.tags || 0,
-    oldestItem: stats[0]?.oldest || null,
-    newestItem: stats[0]?.newest || null,
+    totalItems: tCount + pCount,
+    tasks: tCount,
+    projects: pCount,
+    tags: 0, // Tags use hard delete
+    oldestItem: allOldest,
+    newestItem: allNewest,
   }
 }
 
 /**
- * Clean up expired trash items
+ * Clean up expired trash items (older than 30 days)
  */
 export async function cleanupExpiredTrash(): Promise<number> {
-  const db = await getDatabase()
-  const now = new Date().toISOString()
+  const db = await getSqlRepository()
+  const cutoff = new Date(Date.now() - TRASH_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
-  // Get expired items
-  const expiredItems = await db.select(
-    `SELECT * FROM trash WHERE expires_at <= $1`,
-    [now]
+  const expiredTasks = await db.select(
+    `SELECT id FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < $1`, [cutoff]
+  )
+  const expiredProjects = await db.select(
+    `SELECT id FROM projects WHERE deleted_at IS NOT NULL AND deleted_at < $1`, [cutoff]
   )
 
-  // Delete each expired item
   let cleaned = 0
-  for (const item of expiredItems) {
-    // Check if synced before deleting
-    if (item.synced_at) {
-      const success = await permanentlyDelete(item.id)
-      if (success) {
-        cleaned++
-      }
-    }
+  for (const t of expiredTasks) {
+    await db.execute('DELETE FROM tasks WHERE id = $1', [t.id])
+    cleaned++
+  }
+  for (const p of expiredProjects) {
+    await db.execute('DELETE FROM projects WHERE id = $1', [p.id])
+    cleaned++
   }
 
   return cleaned
@@ -384,12 +326,10 @@ export function getRemainingDays(expiresAt: string): number {
  * Check if trash has items
  */
 export async function hasTrashItems(): Promise<boolean> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
-  const result = await db.select(
-    `SELECT COUNT(*) as count FROM trash WHERE expires_at > $1`,
-    [new Date().toISOString()]
-  )
+  const taskCount = await db.select(`SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL`)
+  const projectCount = await db.select(`SELECT COUNT(*) as count FROM projects WHERE deleted_at IS NOT NULL`)
 
-  return (result[0]?.count || 0) > 0
+  return ((taskCount[0]?.count || 0) + (projectCount[0]?.count || 0)) > 0
 }

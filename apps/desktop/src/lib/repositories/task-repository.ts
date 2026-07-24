@@ -2,7 +2,7 @@
  * Task repository implementation
  */
 
-import { v4 as uuidv4 } from 'uuid'
+import { v7 as uuidv7 } from 'uuid'
 import { getDatabase } from '../database'
 import type {
   Task,
@@ -20,7 +20,7 @@ export class TaskRepository {
   async create(request: CreateTaskRequest): Promise<Task> {
     const db = await getDatabase()
     const now = new Date().toISOString()
-    const id = uuidv4()
+    const id = uuidv7()
 
     const task: Task = {
       id,
@@ -547,12 +547,12 @@ export class TaskRepository {
   ): Promise<void> {
     const db = await getDatabase()
     const now = new Date().toISOString()
-    const operationId = uuidv4()
+    const operationId = uuidv7()
 
     await db.execute(
       `INSERT INTO sync_outbox (id, operation_id, entity_type, entity_id, operation, payload, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [uuidv4(), operationId, entityType, entityId, operation, JSON.stringify(payload), now]
+      [uuidv7(), operationId, entityType, entityId, operation, JSON.stringify(payload), now]
     )
   }
 

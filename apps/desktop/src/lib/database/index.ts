@@ -4,9 +4,10 @@
  */
 
 import { BrowserDatabase } from './browser-db'
+import { isTauriEnvironment } from '../environment'
 
 // Check if running in Tauri
-const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined
+const isTauri = isTauriEnvironment()
 
 // Database interface
 interface Database {
@@ -16,33 +17,42 @@ interface Database {
 }
 
 let db: any = null
+let dbPromise: Promise<any> | null = null
 
 /**
  * Get database instance (singleton)
  */
 export async function getDatabase(): Promise<any> {
-  if (!db) {
-    if (isTauri) {
-      // Use Tauri SQLite
-      try {
+  if (db) {
+    return db
+  }
+
+  if (!dbPromise) {
+    dbPromise = (async () => {
+      if (isTauri) {
         const { default: TauriDatabase } = await import('@tauri-apps/plugin-sql')
-        db = await TauriDatabase.load('sqlite:eztodo.db')
-        await initializeDatabase(db)
-      } catch (error) {
-        console.warn('Failed to load Tauri SQL, falling back to browser storage:', error)
+        const database = await TauriDatabase.load('sqlite:eztodo.db')
+        await initializeDatabase(database)
+        db = database
+      } else {
+        console.log('Using browser localStorage as database')
         db = new BrowserDatabase()
         await initializeBrowserDatabase()
       }
-    } else {
-      // Use browser localStorage
-      console.log('Using browser localStorage as database')
-      db = new BrowserDatabase()
-      await initializeBrowserDatabase()
-    }
-  }
-  return db
-}
 
+      return db
+    })()
+  }
+
+  try {
+    return await dbPromise
+  } catch (error) {
+    console.error('Failed to initialize database:', error)
+    db = null
+    dbPromise = null
+    throw error
+  }
+}
 /**
  * Initialize database with PRAGMA settings (Tauri only)
  */
@@ -447,6 +457,82 @@ function getMigrations(): Migration[] {
         `CREATE INDEX IF NOT EXISTS idx_task_events_task_id ON task_events(task_id)`,
       ],
     },
+    {
+      version: 5,
+      description: 'Add batch identifier to sync outbox',
+      statements: [
+        `ALTER TABLE sync_outbox ADD COLUMN batch_id TEXT`,
+        `CREATE INDEX IF NOT EXISTS idx_sync_outbox_batch_id ON sync_outbox(batch_id)`,
+      ],
+    },
+    {
+      version: 6,
+      description: 'Add recurrence to tasks source CHECK constraint',
+      statements: [
+        // SQLite does not support ALTER COLUMN; recreate the table with relaxed constraint
+        `PRAGMA foreign_keys = OFF`,
+        `CREATE TABLE IF NOT EXISTS tasks_new (
+          id TEXT PRIMARY KEY,
+          parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
+          project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+          title TEXT NOT NULL,
+          note TEXT,
+          status TEXT DEFAULT 'todo' CHECK (status IN ('todo', 'done', 'cancelled')),
+          priority TEXT DEFAULT 'none' CHECK (priority IN ('p1', 'p2', 'p3', 'p4', 'none')),
+          sort_order INTEGER DEFAULT 0,
+          scheduled_date TEXT,
+          scheduled_at TEXT,
+          due_at TEXT,
+          is_all_day INTEGER DEFAULT 0,
+          timezone TEXT DEFAULT 'Asia/Shanghai',
+          estimated_minutes INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          completed_at TEXT,
+          deleted_at TEXT,
+          revision INTEGER DEFAULT 1,
+          source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'ai', 'import', 'api', 'recurrence')),
+          source_capture_id TEXT
+        )`,
+        `INSERT INTO tasks_new SELECT * FROM tasks`,
+        `DROP TABLE tasks`,
+        `ALTER TABLE tasks_new RENAME TO tasks`,
+        // Recreate indexes that reference tasks
+        `CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status) WHERE deleted_at IS NULL`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id) WHERE deleted_at IS NULL`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id) WHERE deleted_at IS NULL`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_scheduled_date ON tasks(scheduled_date) WHERE deleted_at IS NULL`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_due_at ON tasks(due_at) WHERE deleted_at IS NULL`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks(deleted_at) WHERE deleted_at IS NOT NULL`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_updated_at ON tasks(updated_at)`,
+        `PRAGMA foreign_keys = ON`,
+      ],
+    },
+    {
+      version: 7,
+      description: 'Add weekdays to recurrence_rules frequency CHECK constraint',
+      statements: [
+        `PRAGMA foreign_keys = OFF`,
+        `CREATE TABLE IF NOT EXISTS recurrence_rules_new (
+          id TEXT PRIMARY KEY,
+          task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekdays', 'weekly', 'monthly', 'yearly', 'custom')),
+          interval INTEGER DEFAULT 1,
+          days_of_week TEXT,
+          day_of_month INTEGER,
+          month_of_year INTEGER,
+          start_date TEXT NOT NULL,
+          end_date TEXT,
+          max_occurrences INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`,
+        `INSERT INTO recurrence_rules_new SELECT * FROM recurrence_rules`,
+        `DROP TABLE recurrence_rules`,
+        `ALTER TABLE recurrence_rules_new RENAME TO recurrence_rules`,
+        `PRAGMA foreign_keys = ON`,
+      ],
+    },
   ]
 }
 
@@ -457,6 +543,7 @@ export async function closeDatabase(): Promise<void> {
   if (db) {
     await db.close()
     db = null
+    dbPromise = null
   }
 }
 

@@ -2,14 +2,14 @@
  * Database utility functions
  */
 
-import { getDatabase } from './index'
+import { getSqlRepository } from '../repositories/sql-repository'
 
 /**
  * Check if database is initialized
  */
 export async function isDatabaseInitialized(): Promise<boolean> {
   try {
-    const db = await getDatabase()
+    const db = await getSqlRepository()
     const result = await db.select(
       "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='tasks'"
     )
@@ -30,7 +30,7 @@ export async function getDatabaseStats(): Promise<{
   totalProjects: number
   totalTags: number
 }> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   const [tasks, projects, tags] = await Promise.all([
     db.select(
@@ -63,7 +63,7 @@ export async function getDatabaseStats(): Promise<{
  * Backup database to JSON
  */
 export async function exportDatabaseToJson(): Promise<string> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   const [tasks, projects, tags, reminders, recurrenceRules] = await Promise.all([
     db.select('SELECT * FROM tasks'),
@@ -96,7 +96,7 @@ export async function importDatabaseFromJson(json: string): Promise<{
   reminders: number
   recurrenceRules: number
 }> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
   const backup = JSON.parse(json)
 
   if (!backup.version || backup.version !== 1) {
@@ -182,7 +182,7 @@ export async function importDatabaseFromJson(json: string): Promise<{
  * Clean up old deleted tasks (older than 30 days)
  */
 export async function cleanupOldDeletedTasks(): Promise<number> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -199,7 +199,7 @@ export async function cleanupOldDeletedTasks(): Promise<number> {
  * Get database size
  */
 export async function getDatabaseSize(): Promise<number> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   const result = await db.select(
     'PRAGMA page_count; PRAGMA page_size;'

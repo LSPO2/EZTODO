@@ -1,0 +1,98 @@
+name: EZTODO CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  frontend:
+    name: Frontend Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint -w apps/desktop
+
+      - name: TypeScript check
+        run: npx tsc -p apps/desktop/tsconfig.app.json --noEmit
+
+      - name: Build contracts
+        run: npm run build -w packages/contracts
+
+      - name: Run tests
+        run: npm run test -w apps/desktop
+
+      - name: Build
+        run: npm run build -w apps/desktop
+
+      - name: Verify requirements matrix
+        run: node scripts/verify-matrix.js
+
+      - name: Check git whitespace
+        run: git diff --check
+
+  api:
+    name: API Quality Gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+  rust:
+    name: Rust Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cd apps/desktop/src-tauri && cargo fmt --check
+
+      - name: Run clippy
+        run: cd apps/desktop/src-tauri && cargo clippy -- -D warnings
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -t eztodo-api services/api
+
+      - name: Validate docker-compose
+        run: |
+          cd infra/docker
+          cp .env.example .env
+          docker compose config

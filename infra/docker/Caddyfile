@@ -1,11 +1,39 @@
 # EZTODO Caddy Configuration
 
+# Default: HTTP for local development
 :80 {
-    # For local development, just proxy to API
     reverse_proxy api:8000
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Request body limit (10MB)
+    request_body {
+        max_size 10MB
+    }
 }
 
-# For production with domain, uncomment and modify:
+# Production with domain (uncomment and set your domain):
 # yourdomain.com {
+#     # Automatic HTTPS via Let's Encrypt
 #     reverse_proxy api:8000
+#
+#     # Security headers
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#         X-Content-Type-Options nosniff
+#         X-Frame-Options DENY
+#         Referrer-Policy strict-origin-when-cross-origin
+#         -Server
+#     }
+#
+#     # Request body limit (10MB)
+#     request_body {
+#         max_size 10MB
+#     }
 # }

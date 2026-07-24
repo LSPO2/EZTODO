@@ -3,7 +3,7 @@
  * Handles synchronization with the server
  */
 
-import { getDatabase } from './database'
+import { getSqlRepository } from './repositories/sql-repository'
 
 export type SyncState = 'idle' | 'pushing' | 'pulling' | 'applying' | 'retrying' | 'error' | 'conflict'
 
@@ -51,7 +51,7 @@ export class SyncManager {
    * Get current sync status
    */
   async getStatus(): Promise<SyncStatus> {
-    const db = await getDatabase()
+    const db = await getSqlRepository()
     const result = await db.select(
       `SELECT COUNT(*) as count FROM sync_outbox WHERE synced_at IS NULL`
     )
@@ -137,7 +137,7 @@ export class SyncManager {
   private async pushLocalChanges(): Promise<void> {
     this.state = 'pushing'
 
-    const db = await getDatabase()
+    const db = await getSqlRepository()
 
     // Get pending operations
     const operations = await db.select(
@@ -191,7 +191,7 @@ export class SyncManager {
   private async pullRemoteChanges(): Promise<void> {
     this.state = 'pulling'
 
-    const db = await getDatabase()
+    const db = await getSqlRepository()
 
     // Get last cursor
     const cursorResult = await db.select(
@@ -235,7 +235,7 @@ export class SyncManager {
    * Apply a remote operation to local database
    */
   private async applyRemoteOperation(operation: any): Promise<void> {
-    const db = await getDatabase()
+    const db = await getSqlRepository()
 
     switch (operation.entity_type) {
       case 'task':
@@ -261,23 +261,44 @@ export class SyncManager {
     switch (op) {
       case 'create':
         await db.execute(
-          `INSERT OR IGNORE INTO tasks (id, title, note, status, priority, ...)
-           VALUES ($1, $2, $3, $4, $5, ...)`,
-          [entity_id, payload.title, payload.note, payload.status, payload.priority]
+          `INSERT OR IGNORE INTO tasks (
+            id, parent_id, project_id, title, note, status, priority, sort_order,
+            scheduled_date, scheduled_at, due_at, is_all_day, timezone, estimated_minutes,
+            created_at, updated_at, completed_at, deleted_at, revision, source, source_capture_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
+          [
+            entity_id, payload.parent_id, payload.project_id, payload.title, payload.note,
+            payload.status, payload.priority, payload.sort_order,
+            payload.scheduled_date, payload.scheduled_at, payload.due_at, payload.is_all_day,
+            payload.timezone, payload.estimated_minutes,
+            payload.created_at, payload.updated_at, payload.completed_at, payload.deleted_at,
+            payload.revision, payload.source, payload.source_capture_id,
+          ]
         )
         break
 
       case 'update':
         await db.execute(
-          `UPDATE tasks SET title = $1, note = $2, status = $3, priority = $4, ...
-           WHERE id = $5`,
-          [payload.title, payload.note, payload.status, payload.priority, entity_id]
+          `UPDATE tasks SET
+            parent_id = $1, project_id = $2, title = $3, note = $4, status = $5,
+            priority = $6, sort_order = $7, scheduled_date = $8, scheduled_at = $9,
+            due_at = $10, is_all_day = $11, timezone = $12, estimated_minutes = $13,
+            updated_at = $14, completed_at = $15, deleted_at = $16, revision = $17,
+            source = $18, source_capture_id = $19
+           WHERE id = $20`,
+          [
+            payload.parent_id, payload.project_id, payload.title, payload.note, payload.status,
+            payload.priority, payload.sort_order, payload.scheduled_date, payload.scheduled_at,
+            payload.due_at, payload.is_all_day, payload.timezone, payload.estimated_minutes,
+            payload.updated_at, payload.completed_at, payload.deleted_at, payload.revision,
+            payload.source, payload.source_capture_id, entity_id,
+          ]
         )
         break
 
       case 'delete':
         await db.execute(
-          `UPDATE tasks SET deleted_at = $1 WHERE id = $2`,
+          `UPDATE tasks SET deleted_at = $1, updated_at = $1 WHERE id = $2`,
           [new Date().toISOString(), entity_id]
         )
         break
@@ -287,15 +308,65 @@ export class SyncManager {
   /**
    * Apply project operation
    */
-  private async applyProjectOperation(_db: any, _operation: any): Promise<void> {
-    // Similar to task operation
+  private async applyProjectOperation(db: any, operation: any): Promise<void> {
+    const { entity_id, operation: op, payload } = operation
+
+    switch (op) {
+      case 'create':
+        await db.execute(
+          `INSERT OR IGNORE INTO projects (id, name, color, icon, sort_order, created_at, updated_at, deleted_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [entity_id, payload.name, payload.color, payload.icon, payload.sort_order,
+           payload.created_at, payload.updated_at, payload.deleted_at]
+        )
+        break
+
+      case 'update':
+        await db.execute(
+          `UPDATE projects SET name = $1, color = $2, icon = $3, sort_order = $4, updated_at = $5, deleted_at = $6
+           WHERE id = $7`,
+          [payload.name, payload.color, payload.icon, payload.sort_order,
+           payload.updated_at, payload.deleted_at, entity_id]
+        )
+        break
+
+      case 'delete':
+        await db.execute(
+          `UPDATE projects SET deleted_at = $1, updated_at = $1 WHERE id = $2`,
+          [new Date().toISOString(), entity_id]
+        )
+        break
+    }
   }
 
   /**
    * Apply tag operation
    */
-  private async applyTagOperation(_db: any, _operation: any): Promise<void> {
-    // Similar to task operation
+  private async applyTagOperation(db: any, operation: any): Promise<void> {
+    const { entity_id, operation: op, payload } = operation
+
+    switch (op) {
+      case 'create':
+        await db.execute(
+          `INSERT OR IGNORE INTO tags (id, name, color, created_at) VALUES ($1, $2, $3, $4)`,
+          [entity_id, payload.name, payload.color, payload.created_at]
+        )
+        break
+
+      case 'update':
+        await db.execute(
+          `UPDATE tags SET name = $1, color = $2 WHERE id = $3`,
+          [payload.name, payload.color, entity_id]
+        )
+        break
+
+      case 'delete':
+        await db.execute(
+          `DELETE FROM tags WHERE id = $1`,
+          [entity_id]
+        )
+        break
+    }
   }
 
   /**
@@ -366,11 +437,33 @@ export class SyncManager {
     this.lastSyncAt = null
     this.retryCount = 0
   }
+
+  /**
+   * Update API URL (persists to localStorage)
+   */
+  setApiUrl(url: string): void {
+    this.config.apiUrl = url
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('eztodo_api_url', url)
+    }
+  }
+
+  /**
+   * Get current API URL
+   */
+  getApiUrl(): string {
+    return this.config.apiUrl
+  }
 }
 
-// Create global instance
+// Create global instance with configurable API URL
+// Priority: localStorage setting > environment variable > default
+const defaultApiUrl = (typeof localStorage !== 'undefined' && localStorage.getItem('eztodo_api_url'))
+  || (typeof process !== 'undefined' && process.env?.VITE_API_URL)
+  || 'http://localhost:8000'
+
 export const syncManager = new SyncManager({
-  apiUrl: 'http://localhost:8000',
+  apiUrl: defaultApiUrl,
   syncInterval: 5 * 60 * 1000,  // 5 minutes
   maxRetries: 3,
   retryDelay: 1000,

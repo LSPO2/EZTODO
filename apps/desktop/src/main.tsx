@@ -6,9 +6,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { isTauriEnvironment } from './lib/environment'
 
 // Check if running in Tauri
-const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined
+const isTauri = isTauriEnvironment()
 
 // Initialize application (only in Tauri)
 async function initializeApp() {

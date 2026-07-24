@@ -44,7 +44,6 @@ env/
 
 # Rust
 target/
-Cargo.lock
 
 # Tauri
 src-tauri/target/
@@ -53,6 +52,11 @@ src-tauri/target/
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
+
+# Generated Tauri schemas
+apps/desktop/src-tauri/gen/
 
 # Docker
 .env.docker
@@ -61,3 +65,7 @@ src-tauri/target/
 *.tmp
 *.bak
 *.swp
+
+# Project planning deliverables (root folder, not Rust build output)
+!/target/
+!/target/*.md

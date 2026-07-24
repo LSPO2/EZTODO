@@ -2,7 +2,7 @@
  * Window management module
  */
 
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { getCurrentWindow, LogicalSize, LogicalPosition } from '@tauri-apps/api/window'
 
 export interface WindowState {
   width: number
@@ -22,7 +22,91 @@ export async function initializeWindow(): Promise<void> {
   // Prevent multiple instances
   await preventMultipleInstances()
 
+  // Restore saved window state
+  await restoreWindowState()
+
+  // Set up close-to-tray behavior
+  setupCloseToTray()
+
+  // Save window state on resize/move
+  setupWindowStateSaving()
+
   console.log('Window management initialized')
+}
+
+const WINDOW_STATE_KEY = 'eztodo_window_state'
+
+/**
+ * Save current window state to localStorage
+ */
+async function saveWindowState(): Promise<void> {
+  try {
+    const state = await getWindowState()
+    localStorage.setItem(WINDOW_STATE_KEY, JSON.stringify(state))
+  } catch {
+    // Non-fatal
+  }
+}
+
+/**
+ * Restore saved window state from localStorage
+ */
+async function restoreWindowState(): Promise<void> {
+  try {
+    const saved = localStorage.getItem(WINDOW_STATE_KEY)
+    if (!saved) return
+
+    const state: WindowState = JSON.parse(saved)
+    const window = getCurrentWindow()
+
+    // Restore size (with minimum bounds check)
+    if (state.width >= 800 && state.height >= 600) {
+      await window.setSize(new LogicalSize(state.width, state.height))
+    }
+
+    // Restore position
+    if (state.x >= 0 && state.y >= 0) {
+      await window.setPosition(new LogicalPosition(state.x, state.y))
+    }
+
+    // Restore maximized state
+    if (state.maximized) {
+      await window.maximize()
+    }
+  } catch {
+    // Non-fatal: use default window size
+  }
+}
+
+/**
+ * Set up close-to-tray behavior
+ * When user clicks the close button, hide to tray instead of closing
+ */
+function setupCloseToTray(): void {
+  const window = getCurrentWindow()
+  window.onCloseRequested(async (event) => {
+    // Prevent the default close behavior
+    event.preventDefault()
+    // Hide to tray instead
+    await hideToTray()
+  })
+}
+
+/**
+ * Save window state on resize and move events
+ */
+function setupWindowStateSaving(): void {
+  const window = getCurrentWindow()
+
+  // Debounce state saving to avoid excessive writes
+  let saveTimeout: ReturnType<typeof setTimeout> | null = null
+  const debouncedSave = () => {
+    if (saveTimeout) clearTimeout(saveTimeout)
+    saveTimeout = setTimeout(() => { saveWindowState() }, 500)
+  }
+
+  window.onResized(debouncedSave)
+  window.onMoved(debouncedSave)
 }
 
 /**

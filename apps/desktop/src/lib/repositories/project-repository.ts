@@ -2,7 +2,7 @@
  * Project repository implementation
  */
 
-import { v4 as uuidv4 } from 'uuid'
+import { v7 as uuidv7 } from 'uuid'
 import { getDatabase } from '../database'
 import type { Project, CreateProjectRequest, UpdateProjectRequest } from './types'
 
@@ -13,7 +13,7 @@ export class ProjectRepository {
   async create(request: CreateProjectRequest): Promise<Project> {
     const db = await getDatabase()
     const now = new Date().toISOString()
-    const id = uuidv4()
+    const id = uuidv7()
 
     const project: Project = {
       id,

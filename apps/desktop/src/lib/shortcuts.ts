@@ -3,6 +3,7 @@
  */
 
 import { register, unregister, isRegistered } from '@tauri-apps/plugin-global-shortcut'
+import { emit } from '@tauri-apps/api/event'
 
 export interface ShortcutConfig {
   id: string
@@ -18,37 +19,25 @@ const defaultShortcuts: ShortcutConfig[] = [
     id: 'new-task',
     key: 'Ctrl+N',
     description: '新建任务',
-    action: () => {
-      // TODO: Open new task dialog
-      console.log('New task shortcut triggered')
-    },
+    action: () => { emit('shortcut:new-task') },
   },
   {
     id: 'search',
     key: 'Ctrl+K',
     description: '全局搜索',
-    action: () => {
-      // TODO: Focus search input
-      console.log('Search shortcut triggered')
-    },
+    action: () => { emit('shortcut:search') },
   },
   {
     id: 'save',
     key: 'Ctrl+Enter',
     description: '保存任务',
-    action: () => {
-      // TODO: Save current task
-      console.log('Save shortcut triggered')
-    },
+    action: () => { emit('shortcut:save') },
   },
   {
     id: 'close',
     key: 'Escape',
     description: '关闭面板',
-    action: () => {
-      // TODO: Close current panel/dialog
-      console.log('Close shortcut triggered')
-    },
+    action: () => { emit('shortcut:close') },
   },
 ]
 
@@ -58,10 +47,7 @@ const globalShortcuts: ShortcutConfig[] = [
     id: 'global-quick-add',
     key: 'Ctrl+Shift+A',
     description: '全局快速添加',
-    action: () => {
-      // TODO: Open quick add window
-      console.log('Global quick add triggered')
-    },
+    action: () => { emit('shortcut:global-quick-add') },
     global: true,
   },
 ]

@@ -3,31 +3,28 @@
  */
 
 import { create } from 'zustand'
-import { tagRepository } from '../lib/repositories'
+import { getRepositories } from '../lib/repositories'
 import type { Tag, CreateTagRequest } from '../lib/repositories'
 
 interface TagState {
-  // State
   tags: Tag[]
   isLoading: boolean
   error: string | null
 
-  // Actions
   loadTags: () => Promise<void>
   createTag: (request: CreateTagRequest) => Promise<Tag>
 }
 
 export const useTagStore = create<TagState>((set) => ({
-  // Initial state
   tags: [],
   isLoading: false,
   error: null,
 
-  // Load all tags
   loadTags: async () => {
     set({ isLoading: true, error: null })
     try {
-      const tags = await tagRepository.findAll()
+      const repos = await getRepositories()
+      const tags = await repos.tags.findAll()
       set({ tags, isLoading: false })
     } catch (error) {
       set({
@@ -37,11 +34,11 @@ export const useTagStore = create<TagState>((set) => ({
     }
   },
 
-  // Create a new tag
   createTag: async (request: CreateTagRequest) => {
     set({ isLoading: true, error: null })
     try {
-      const tag = await tagRepository.create(request)
+      const repos = await getRepositories()
+      const tag = await repos.tags.create(request)
       set((state) => ({
         tags: [...state.tags, tag],
         isLoading: false,

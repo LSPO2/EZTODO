@@ -82,12 +82,18 @@ class MockNotification {
 
 global.Notification = MockNotification as any
 
-// Mock crypto.subtle
+// Mock crypto (including getRandomValues for UUIDv7)
 Object.defineProperty(global, 'crypto', {
   value: {
     subtle: {
       digest: vi.fn().mockResolvedValue(new ArrayBuffer(32)),
     },
     randomUUID: vi.fn().mockReturnValue('test-uuid'),
+    getRandomValues: vi.fn((arr: Uint8Array) => {
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = Math.floor(Math.random() * 256)
+      }
+      return arr
+    }),
   },
 })

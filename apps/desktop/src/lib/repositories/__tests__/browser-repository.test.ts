@@ -1,0 +1,107 @@
+/**
+ * Browser Repository tests
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest'
+import { BrowserTaskRepository, BrowserProjectRepository } from '../browser-repository'
+
+// Clear localStorage before each test
+beforeEach(() => {
+  localStorage.clear()
+})
+
+describe('BrowserTaskRepository', () => {
+  const repo = new BrowserTaskRepository()
+
+  it('should create a task', async () => {
+    const task = await repo.create({ title: 'Test Task' })
+
+    expect(task).toBeDefined()
+    expect(task.id).toBeDefined()
+    expect(task.title).toBe('Test Task')
+    expect(task.status).toBe('todo')
+    expect(task.priority).toBe('none')
+  })
+
+  it('should find task by id', async () => {
+    const created = await repo.create({ title: 'Find Me' })
+    const found = await repo.findById(created.id)
+
+    expect(found).toBeDefined()
+    expect(found?.title).toBe('Find Me')
+  })
+
+  it('should return null for non-existent task', async () => {
+    const found = await repo.findById('non-existent')
+    expect(found).toBeNull()
+  })
+
+  it('should update a task', async () => {
+    const task = await repo.create({ title: 'Original' })
+    const updated = await repo.update(task.id, { title: 'Updated' })
+
+    expect(updated.title).toBe('Updated')
+    expect(updated.revision).toBeGreaterThan(task.revision)
+  })
+
+  it('should soft delete a task', async () => {
+    const task = await repo.create({ title: 'Delete Me' })
+    await repo.delete(task.id)
+
+    const found = await repo.findById(task.id)
+    expect(found?.deletedAt).toBeDefined()
+  })
+
+  it('should restore a deleted task', async () => {
+    const task = await repo.create({ title: 'Restore Me' })
+    await repo.delete(task.id)
+    const restored = await repo.restore(task.id)
+
+    expect(restored.deletedAt).toBeNull()
+  })
+
+  it('should find tasks by view', async () => {
+    await repo.create({ title: 'Todo 1' })
+    await repo.create({ title: 'Todo 2' })
+
+    const tasks = await repo.findByView('inbox')
+    expect(tasks.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('should search tasks', async () => {
+    await repo.create({ title: 'Searchable Task' })
+    await repo.create({ title: 'Other Task' })
+
+    const results = await repo.search('Searchable')
+    expect(results.length).toBe(1)
+    expect(results[0].title).toBe('Searchable Task')
+  })
+
+  it('should batch complete tasks', async () => {
+    const t1 = await repo.create({ title: 'Batch 1' })
+    const t2 = await repo.create({ title: 'Batch 2' })
+
+    const result = await repo.batchComplete([t1.id, t2.id])
+    expect(result.success).toBe(true)
+    expect(result.affectedCount).toBe(2)
+  })
+})
+
+describe('BrowserProjectRepository', () => {
+  const repo = new BrowserProjectRepository()
+
+  it('should create a project', async () => {
+    const project = await repo.create({ name: 'Test Project' })
+
+    expect(project).toBeDefined()
+    expect(project.name).toBe('Test Project')
+  })
+
+  it('should find all projects', async () => {
+    await repo.create({ name: 'Project 1' })
+    await repo.create({ name: 'Project 2' })
+
+    const projects = await repo.findAll()
+    expect(projects.length).toBeGreaterThanOrEqual(2)
+  })
+})

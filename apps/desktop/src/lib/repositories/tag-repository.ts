@@ -2,7 +2,7 @@
  * Tag repository implementation
  */
 
-import { v4 as uuidv4 } from 'uuid'
+import { v7 as uuidv7 } from 'uuid'
 import { getDatabase } from '../database'
 import type { Tag, CreateTagRequest, UpdateTagRequest } from './types'
 
@@ -13,7 +13,7 @@ export class TagRepository {
   async create(request: CreateTagRequest): Promise<Tag> {
     const db = await getDatabase()
     const now = new Date().toISOString()
-    const id = uuidv4()
+    const id = uuidv7()
 
     const tag: Tag = {
       id,

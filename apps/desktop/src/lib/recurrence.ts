@@ -3,8 +3,8 @@
  * Handles recurring task generation and management
  */
 
-import { getDatabase } from './database'
-import { v4 as uuidv4 } from 'uuid'
+import { getSqlRepository } from './repositories/sql-repository'
+import { v7 as uuidv7 } from 'uuid'
 
 export type RecurrenceFrequency = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly' | 'custom'
 
@@ -110,13 +110,14 @@ void getNextWeeklyOccurrence
  * 获取下一个每月重复日期
  */
 function getNextMonthlyOccurrence(config: RecurrenceConfig, current: Date): Date {
-  const dayOfMonth = config.dayOfMonth || current.getDate()
+  const dayOfMonth = config.dayOfMonth ?? current.getDate()
   const next = new Date(current)
 
-  // 移动到下个月
+  // Set day to 1 first to avoid month rollover (e.g., Jan 31 + 1 month = Mar 3)
+  next.setDate(1)
   next.setMonth(next.getMonth() + 1)
 
-  // 设置为指定日期，如果该月没有这一天，则使用最后一天
+  // Set to target day, clamped to last day of month
   const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
   next.setDate(Math.min(dayOfMonth, lastDay))
 
@@ -127,15 +128,17 @@ function getNextMonthlyOccurrence(config: RecurrenceConfig, current: Date): Date
  * 获取下一个每年重复日期
  */
 function getNextYearlyOccurrence(config: RecurrenceConfig, current: Date): Date {
-  const monthOfYear = config.monthOfYear || current.getMonth()
-  const dayOfMonth = config.dayOfMonth || current.getDate()
+  // Use ?? instead of || to preserve monthOfYear=0 (January)
+  const monthOfYear = config.monthOfYear ?? current.getMonth()
+  const dayOfMonth = config.dayOfMonth ?? current.getDate()
   const next = new Date(current)
 
-  // 移动到下一年
+  // Set day to 1 first to avoid month rollover
+  next.setDate(1)
   next.setFullYear(next.getFullYear() + 1)
   next.setMonth(monthOfYear)
 
-  // 处理闰年2月29日
+  // Handle leap year (e.g., Feb 29 → Feb 28 in non-leap year)
   const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
   next.setDate(Math.min(dayOfMonth, lastDay))
 
@@ -300,9 +303,9 @@ export async function createRecurrenceRule(
   taskId: string,
   config: RecurrenceConfig
 ): Promise<RecurrenceRule> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
   const now = new Date().toISOString()
-  const id = uuidv4()
+  const id = uuidv7()
 
   await db.execute(
     `INSERT INTO recurrence_rules (
@@ -331,7 +334,7 @@ export async function createRecurrenceRule(
  * 获取任务的重复规则
  */
 export async function getRecurrenceRule(taskId: string): Promise<RecurrenceRule | null> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   const result = await db.select(
     `SELECT * FROM recurrence_rules WHERE task_id = $1`,
@@ -368,7 +371,7 @@ export async function updateRecurrenceRule(
   ruleId: string,
   config: Partial<RecurrenceConfig>
 ): Promise<void> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
   const now = new Date().toISOString()
 
   const fields: string[] = []
@@ -422,7 +425,7 @@ export async function updateRecurrenceRule(
  * 删除重复规则
  */
 export async function deleteRecurrenceRule(ruleId: string): Promise<void> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
   await db.execute('DELETE FROM recurrence_rules WHERE id = $1', [ruleId])
 }
 
@@ -430,7 +433,7 @@ export async function deleteRecurrenceRule(ruleId: string): Promise<void> {
  * 生成下一个重复任务实例
  */
 export async function generateNextInstance(taskId: string): Promise<string | null> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   // 获取当前任务
   const taskResult = await db.select(
@@ -450,6 +453,17 @@ export async function generateNextInstance(taskId: string): Promise<string | nul
     return null
   }
 
+  // 检查 maxOccurrences
+  if (rule.config.maxOccurrences) {
+    const existingCount = await db.select(
+      `SELECT COUNT(*) as count FROM tasks WHERE source_capture_id = $1 AND source = 'recurrence'`,
+      [taskId]
+    )
+    if ((existingCount[0]?.count || 0) >= rule.config.maxOccurrences) {
+      return null
+    }
+  }
+
   // 计算下一个日期
   const currentDate = task.scheduled_date || new Date().toISOString().split('T')[0]
   const nextDate = getNextOccurrence(rule.config, currentDate)
@@ -458,40 +472,52 @@ export async function generateNextInstance(taskId: string): Promise<string | nul
     return null
   }
 
-  // 创建新任务
-  const newTaskId = uuidv4()
+  // 创建新任务、复制标签、复制规则 — 全部在同一个事务中
+  const newTaskId = uuidv7()
   const now = new Date().toISOString()
 
-  await db.execute(
-    `INSERT INTO tasks (
-      id, parent_id, project_id, title, note, status, priority, sort_order,
-      scheduled_date, scheduled_at, due_at, is_all_day, timezone, estimated_minutes,
-      created_at, updated_at, completed_at, deleted_at, revision, source, source_capture_id
-    ) VALUES ($1, $2, $3, $4, $5, 'todo', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULL, NULL, 1, 'recurrence', $16)`,
-    [
-      newTaskId, task.parent_id, task.project_id, task.title, task.note,
-      task.priority, task.sort_order,
-      nextDate, task.scheduled_at, task.due_at, task.is_all_day,
-      task.timezone, task.estimated_minutes,
-      now, now, taskId,
-    ]
-  )
+  // Shift scheduled_at and due_at to the new date
+  const oldDate = task.scheduled_date || currentDate
+  const dateDiffMs = new Date(nextDate).getTime() - new Date(oldDate).getTime()
+  const newScheduledAt = task.scheduled_at
+    ? new Date(new Date(task.scheduled_at).getTime() + dateDiffMs).toISOString()
+    : null
+  const newDueAt = task.due_at
+    ? new Date(new Date(task.due_at).getTime() + dateDiffMs).toISOString()
+    : null
 
-  // 复制标签
-  const tags = await db.select(
-    `SELECT tag_id FROM task_tags WHERE task_id = $1`,
-    [taskId]
-  )
-
-  for (const tag of tags) {
+  await db.transaction(async () => {
     await db.execute(
-      `INSERT INTO task_tags (task_id, tag_id) VALUES ($1, $2)`,
-      [newTaskId, tag.tag_id]
+      `INSERT INTO tasks (
+        id, parent_id, project_id, title, note, status, priority, sort_order,
+        scheduled_date, scheduled_at, due_at, is_all_day, timezone, estimated_minutes,
+        created_at, updated_at, completed_at, deleted_at, revision, source, source_capture_id
+      ) VALUES ($1, $2, $3, $4, $5, 'todo', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULL, NULL, 1, 'recurrence', $16)`,
+      [
+        newTaskId, task.parent_id, task.project_id, task.title, task.note,
+        task.priority, task.sort_order,
+        nextDate, newScheduledAt, newDueAt, task.is_all_day,
+        task.timezone, task.estimated_minutes,
+        now, now, taskId,
+      ]
     )
-  }
 
-  // 复制重复规则到新任务
-  await createRecurrenceRule(newTaskId, rule.config)
+    // 复制标签
+    const tags = await db.select(
+      `SELECT tag_id FROM task_tags WHERE task_id = $1`,
+      [taskId]
+    )
+
+    for (const tag of tags) {
+      await db.execute(
+        `INSERT INTO task_tags (task_id, tag_id) VALUES ($1, $2)`,
+        [newTaskId, tag.tag_id]
+      )
+    }
+
+    // 复制重复规则到新任务
+    await createRecurrenceRule(newTaskId, rule.config)
+  })
 
   return newTaskId
 }
@@ -500,7 +526,7 @@ export async function generateNextInstance(taskId: string): Promise<string | nul
  * 重置重复父任务的子任务
  */
 export async function resetSubtasksForRecurrence(parentId: string): Promise<void> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
   const now = new Date().toISOString()
 
   // 获取需要重置的子任务（标记为可重置的）
@@ -522,7 +548,7 @@ export async function resetSubtasksForRecurrence(parentId: string): Promise<void
  * 跳过本次重复
  */
 export async function skipRecurrence(taskId: string): Promise<void> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   // 标记当前任务为已跳过（使用 cancelled 状态）
   await db.execute(

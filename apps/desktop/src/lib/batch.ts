@@ -1,21 +1,22 @@
 /**
  * Batch operations module
+ * Uses Repository pattern for data access
+ *
+ * NOTE: The primary batch + undo flow now lives in services/batch-service.
+ * This module is retained for backward compatibility and legacy tests.
  */
 
-import { taskRepository } from './repositories'
-import type { Task, UpdateTaskRequest } from './repositories'
+import { getRepositories } from './repositories'
+import type { Task, UpdateTaskRequest, BatchResult } from './repositories'
 
 export interface BatchOperation {
   type: 'complete' | 'uncomplete' | 'delete' | 'restore' | 'move' | 'update'
   taskIds: string[]
-  data?: any
+  data?: Record<string, unknown>
 }
 
-export interface BatchResult {
-  success: boolean
-  affectedCount: number
-  errors: Array<{ taskId: string; error: string }>
-}
+// Re-export BatchResult for backward compatibility
+export type { BatchResult }
 
 // Undo stack for batch operations
 let undoStack: BatchOperation[] = []
@@ -26,8 +27,10 @@ const MAX_UNDO_STACK = 50
  */
 export async function batchComplete(taskIds: string[]): Promise<BatchResult> {
   try {
+    const repos = await getRepositories()
+
     // Save for undo
-    const tasks = await Promise.all(taskIds.map((id) => taskRepository.findById(id)))
+    const tasks = await Promise.all(taskIds.map((id) => repos.tasks.findById(id)))
     const validTasks = tasks.filter((t): t is Task => t !== null)
 
     pushToUndoStack({
@@ -36,18 +39,13 @@ export async function batchComplete(taskIds: string[]): Promise<BatchResult> {
     })
 
     // Execute batch complete
-    await taskRepository.batchUpdate(taskIds, { status: 'done' })
-
-    return {
-      success: true,
-      affectedCount: taskIds.length,
-      errors: [],
-    }
+    return await repos.tasks.batchComplete(taskIds)
   } catch (error) {
     return {
       success: false,
       affectedCount: 0,
-      errors: [{ taskId: 'batch', error: String(error) }],
+      errors: [{ id: 'batch', error: String(error) }],
+      undoToken: null,
     }
   }
 }
@@ -57,8 +55,10 @@ export async function batchComplete(taskIds: string[]): Promise<BatchResult> {
  */
 export async function batchUncomplete(taskIds: string[]): Promise<BatchResult> {
   try {
+    const repos = await getRepositories()
+
     // Save for undo
-    const tasks = await Promise.all(taskIds.map((id) => taskRepository.findById(id)))
+    const tasks = await Promise.all(taskIds.map((id) => repos.tasks.findById(id)))
     const validTasks = tasks.filter((t): t is Task => t !== null)
 
     pushToUndoStack({
@@ -67,18 +67,13 @@ export async function batchUncomplete(taskIds: string[]): Promise<BatchResult> {
     })
 
     // Execute batch uncomplete
-    await taskRepository.batchUpdate(taskIds, { status: 'todo' })
-
-    return {
-      success: true,
-      affectedCount: taskIds.length,
-      errors: [],
-    }
+    return await repos.tasks.batchUpdate(taskIds, { status: 'todo' })
   } catch (error) {
     return {
       success: false,
       affectedCount: 0,
-      errors: [{ taskId: 'batch', error: String(error) }],
+      errors: [{ id: 'batch', error: String(error) }],
+      undoToken: null,
     }
   }
 }
@@ -88,6 +83,8 @@ export async function batchUncomplete(taskIds: string[]): Promise<BatchResult> {
  */
 export async function batchDelete(taskIds: string[]): Promise<BatchResult> {
   try {
+    const repos = await getRepositories()
+
     // Save for undo
     pushToUndoStack({
       type: 'restore',
@@ -95,18 +92,13 @@ export async function batchDelete(taskIds: string[]): Promise<BatchResult> {
     })
 
     // Execute batch delete
-    await taskRepository.batchDelete(taskIds)
-
-    return {
-      success: true,
-      affectedCount: taskIds.length,
-      errors: [],
-    }
+    return await repos.tasks.batchDelete(taskIds)
   } catch (error) {
     return {
       success: false,
       affectedCount: 0,
-      errors: [{ taskId: 'batch', error: String(error) }],
+      errors: [{ id: 'batch', error: String(error) }],
+      undoToken: null,
     }
   }
 }
@@ -116,6 +108,8 @@ export async function batchDelete(taskIds: string[]): Promise<BatchResult> {
  */
 export async function batchRestore(taskIds: string[]): Promise<BatchResult> {
   try {
+    const repos = await getRepositories()
+
     // Save for undo
     pushToUndoStack({
       type: 'delete',
@@ -123,88 +117,13 @@ export async function batchRestore(taskIds: string[]): Promise<BatchResult> {
     })
 
     // Execute batch restore
-    await taskRepository.batchRestore(taskIds)
-
-    return {
-      success: true,
-      affectedCount: taskIds.length,
-      errors: [],
-    }
+    return await repos.tasks.batchRestore(taskIds)
   } catch (error) {
     return {
       success: false,
       affectedCount: 0,
-      errors: [{ taskId: 'batch', error: String(error) }],
-    }
-  }
-}
-
-/**
- * Batch move tasks to project
- */
-export async function batchMoveToProject(
-  taskIds: string[],
-  projectId: string
-): Promise<BatchResult> {
-  try {
-    // Save for undo
-    const tasks = await Promise.all(taskIds.map((id) => taskRepository.findById(id)))
-    const validTasks = tasks.filter((t): t is Task => t !== null)
-
-    pushToUndoStack({
-      type: 'update',
-      taskIds,
-      data: { projectId: validTasks[0]?.projectId },
-    })
-
-    // Execute batch move
-    await taskRepository.batchUpdate(taskIds, { projectId })
-
-    return {
-      success: true,
-      affectedCount: taskIds.length,
-      errors: [],
-    }
-  } catch (error) {
-    return {
-      success: false,
-      affectedCount: 0,
-      errors: [{ taskId: 'batch', error: String(error) }],
-    }
-  }
-}
-
-/**
- * Batch update priority
- */
-export async function batchUpdatePriority(
-  taskIds: string[],
-  priority: string
-): Promise<BatchResult> {
-  try {
-    // Save for undo
-    const tasks = await Promise.all(taskIds.map((id) => taskRepository.findById(id)))
-    const validTasks = tasks.filter((t): t is Task => t !== null)
-
-    pushToUndoStack({
-      type: 'update',
-      taskIds,
-      data: { priority: validTasks[0]?.priority },
-    })
-
-    // Execute batch update
-    await taskRepository.batchUpdate(taskIds, { priority: priority as any })
-
-    return {
-      success: true,
-      affectedCount: taskIds.length,
-      errors: [],
-    }
-  } catch (error) {
-    return {
-      success: false,
-      affectedCount: 0,
-      errors: [{ taskId: 'batch', error: String(error) }],
+      errors: [{ id: 'batch', error: String(error) }],
+      undoToken: null,
     }
   }
 }
@@ -212,45 +131,34 @@ export async function batchUpdatePriority(
 /**
  * Batch update tasks
  */
-export async function batchUpdate(
-  taskIds: string[],
-  updates: UpdateTaskRequest
-): Promise<BatchResult> {
+export async function batchUpdate(taskIds: string[], updates: UpdateTaskRequest): Promise<BatchResult> {
   try {
+    const repos = await getRepositories()
+
     // Save for undo
-    const tasks = await Promise.all(taskIds.map((id) => taskRepository.findById(id)))
+    const tasks = await Promise.all(taskIds.map((id) => repos.tasks.findById(id)))
     const validTasks = tasks.filter((t): t is Task => t !== null)
 
-    const undoData: UpdateTaskRequest = {}
-    if (updates.status) {
-      undoData.status = validTasks[0]?.status ?? undefined
-    }
-    if (updates.priority) {
-      undoData.priority = validTasks[0]?.priority ?? undefined
-    }
-    if (updates.projectId !== undefined) {
-      undoData.projectId = validTasks[0]?.projectId ?? undefined
-    }
+    if (validTasks.length > 0) {
+      const undoData: UpdateTaskRequest = {}
+      if (updates.status) undoData.status = validTasks[0].status
+      if (updates.priority) undoData.priority = validTasks[0].priority
 
-    pushToUndoStack({
-      type: 'update',
-      taskIds,
-      data: undoData,
-    })
+      pushToUndoStack({
+        type: 'update',
+        taskIds,
+        data: undoData as Record<string, unknown>,
+      })
+    }
 
     // Execute batch update
-    await taskRepository.batchUpdate(taskIds, updates)
-
-    return {
-      success: true,
-      affectedCount: taskIds.length,
-      errors: [],
-    }
+    return await repos.tasks.batchUpdate(taskIds, updates)
   } catch (error) {
     return {
       success: false,
       affectedCount: 0,
-      errors: [{ taskId: 'batch', error: String(error) }],
+      errors: [{ id: 'batch', error: String(error) }],
+      undoToken: null,
     }
   }
 }
@@ -264,7 +172,8 @@ export async function undoLastBatch(): Promise<BatchResult> {
     return {
       success: false,
       affectedCount: 0,
-      errors: [{ taskId: 'undo', error: 'No operation to undo' }],
+      errors: [{ id: 'undo', error: 'No operation to undo' }],
+      undoToken: null,
     }
   }
 
@@ -278,12 +187,13 @@ export async function undoLastBatch(): Promise<BatchResult> {
     case 'restore':
       return batchRestore(operation.taskIds)
     case 'update':
-      return batchUpdate(operation.taskIds, operation.data || {})
+      return batchUpdate(operation.taskIds, (operation.data as UpdateTaskRequest) || {})
     default:
       return {
         success: false,
         affectedCount: 0,
-        errors: [{ taskId: 'undo', error: 'Unknown operation type' }],
+        errors: [{ id: 'undo', error: 'Unknown operation type' }],
+        undoToken: null,
       }
   }
 }
@@ -318,39 +228,5 @@ function pushToUndoStack(operation: BatchOperation): void {
   // Trim stack if too large
   if (undoStack.length > MAX_UNDO_STACK) {
     undoStack = undoStack.slice(-MAX_UNDO_STACK)
-  }
-}
-
-/**
- * Get selected tasks
- */
-export async function getSelectedTasks(taskIds: string[]): Promise<Task[]> {
-  const tasks = await Promise.all(taskIds.map((id) => taskRepository.findById(id)))
-  return tasks.filter((t): t is Task => t !== null)
-}
-
-/**
- * Validate batch operation
- */
-export function validateBatchOperation(
-  operation: BatchOperation
-): { valid: boolean; errors: string[] } {
-  const errors: string[] = []
-
-  if (operation.taskIds.length === 0) {
-    errors.push('No tasks selected')
-  }
-
-  if (operation.type === 'move' && !operation.data?.projectId) {
-    errors.push('No project specified')
-  }
-
-  if (operation.type === 'update' && !operation.data) {
-    errors.push('No update data specified')
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
   }
 }

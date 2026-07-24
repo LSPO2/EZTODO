@@ -1,17 +1,13 @@
 /**
  * Repository type definitions
+ * All repositories must implement these interfaces
  */
 
-// Task status
+// Task types
 export type TaskStatus = 'todo' | 'done' | 'cancelled'
-
-// Task priority
 export type TaskPriority = 'p1' | 'p2' | 'p3' | 'p4' | 'none'
+export type TaskSource = 'manual' | 'ai' | 'import' | 'api' | 'recurrence'
 
-// Task source
-export type TaskSource = 'manual' | 'ai' | 'import' | 'api'
-
-// Task interface
 export interface Task {
   id: string
   parentId: string | null
@@ -36,13 +32,13 @@ export interface Task {
   sourceCaptureId: string | null
 }
 
-// Create task request
 export interface CreateTaskRequest {
   title: string
   parentId?: string
   projectId?: string
   note?: string
   priority?: TaskPriority
+  sortOrder?: number
   scheduledDate?: string
   scheduledAt?: string
   dueAt?: string
@@ -53,24 +49,23 @@ export interface CreateTaskRequest {
   sourceCaptureId?: string
 }
 
-// Update task request
 export interface UpdateTaskRequest {
   title?: string
-  parentId?: string
-  projectId?: string
-  note?: string
+  parentId?: string | null
+  projectId?: string | null
+  note?: string | null
   status?: TaskStatus
   priority?: TaskPriority
   sortOrder?: number
-  scheduledDate?: string
-  scheduledAt?: string
-  dueAt?: string
+  scheduledDate?: string | null
+  scheduledAt?: string | null
+  dueAt?: string | null
   isAllDay?: boolean
   timezone?: string
-  estimatedMinutes?: number
+  estimatedMinutes?: number | null
 }
 
-// Project interface
+// Project types
 export interface Project {
   id: string
   name: string
@@ -82,14 +77,12 @@ export interface Project {
   deletedAt: string | null
 }
 
-// Create project request
 export interface CreateProjectRequest {
   name: string
   color?: string
   icon?: string
 }
 
-// Update project request
 export interface UpdateProjectRequest {
   name?: string
   color?: string
@@ -97,7 +90,7 @@ export interface UpdateProjectRequest {
   sortOrder?: number
 }
 
-// Tag interface
+// Tag types
 export interface Tag {
   id: string
   name: string
@@ -105,84 +98,31 @@ export interface Tag {
   createdAt: string
 }
 
-// Create tag request
 export interface CreateTagRequest {
   name: string
   color?: string
 }
 
-// Update tag request
 export interface UpdateTagRequest {
   name?: string
   color?: string
 }
 
-// Reminder interface
-export interface Reminder {
-  id: string
-  taskId: string
-  remindAt: string
-  status: 'pending' | 'triggered' | 'confirmed' | 'snoozed' | 'cancelled'
-  snoozedUntil: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-// Create reminder request
-export interface CreateReminderRequest {
-  taskId: string
-  remindAt: string
-}
-
-// Update reminder request
-export interface UpdateReminderRequest {
-  remindAt?: string
-  status?: Reminder['status']
-  snoozedUntil?: string
-}
-
-// Recurrence rule interface
-export interface RecurrenceRule {
-  id: string
-  taskId: string
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
-  interval: number
-  daysOfWeek: number[] | null
-  dayOfMonth: number | null
-  monthOfYear: number | null
-  startDate: string
-  endDate: string | null
-  maxOccurrences: number | null
-  createdAt: string
-  updatedAt: string
-}
-
-// Create recurrence rule request
-export interface CreateRecurrenceRuleRequest {
-  taskId: string
-  frequency: RecurrenceRule['frequency']
-  interval?: number
-  daysOfWeek?: number[]
-  dayOfMonth?: number
-  monthOfYear?: number
-  startDate: string
-  endDate?: string
-  maxOccurrences?: number
-}
-
-// View types
+// View and filter types
 export type ViewType = 'inbox' | 'today' | 'week' | 'overdue' | 'no-date' | 'completed' | 'trash'
 
-// Filters
 export interface TaskFilters {
   projectId?: string
   tagIds?: string[]
   priority?: TaskPriority
   status?: TaskStatus
   search?: string
+  /** If true, only return root tasks (parent_id IS NULL) regardless of view */
+  parentOnly?: boolean
+  /** Sort specification; defaults to { field: 'sortOrder', direction: 'asc' } */
+  sort?: SortOptions
 }
 
-// Sort options
 export type SortField = 'scheduledDate' | 'dueAt' | 'createdAt' | 'sortOrder' | 'priority'
 export type SortDirection = 'asc' | 'desc'
 
@@ -191,7 +131,7 @@ export interface SortOptions {
   direction: SortDirection
 }
 
-// Sync operation
+// Sync types
 export interface SyncOperation {
   id: string
   operationId: string
@@ -200,6 +140,191 @@ export interface SyncOperation {
   operation: 'create' | 'update' | 'delete'
   payload: Record<string, unknown>
   baseRevision: number | null
+  /** Groups multiple outbox rows from the same batch operation */
+  batchId: string | null
   createdAt: string
   syncedAt: string | null
+}
+
+// Batch operation result
+export interface BatchResult {
+  success: boolean
+  affectedCount: number
+  errors: Array<{ id: string; error: string }>
+  /** Unique token that identifies this batch for undo purposes */
+  undoToken: string | null
+}
+
+/** Describes one undoable batch so the UI can present "Undo" */
+export interface UndoableBatch {
+  undoToken: string
+  operation: string
+  taskIds: string[]
+  snapshot: TaskSnapshot[]
+  createdAt: string
+}
+
+/** Captures enough state to reverse a single task change */
+export interface TaskSnapshot {
+  id: string
+  status: TaskStatus
+  priority: TaskPriority
+  projectId: string | null
+  parentId: string | null
+  deletedAt: string | null
+  tagIds: string[]
+}
+
+// Repository interfaces
+export interface TaskRepository {
+  // CRUD
+  create(request: CreateTaskRequest): Promise<Task>
+  findById(id: string): Promise<Task | null>
+  update(id: string, updates: UpdateTaskRequest): Promise<Task>
+  delete(id: string): Promise<void>  // soft delete
+  restore(id: string): Promise<Task>
+  permanentlyDelete(id: string): Promise<void>
+
+  // Query
+  findByView(view: ViewType, filters?: TaskFilters): Promise<Task[]>
+  search(query: string): Promise<Task[]>
+  findByParentId(parentId: string): Promise<Task[]>
+
+  // Batch (batchId groups outbox rows from the same operation)
+  batchComplete(ids: string[], batchId?: string): Promise<BatchResult>
+  batchDelete(ids: string[], batchId?: string): Promise<BatchResult>
+  batchRestore(ids: string[], batchId?: string): Promise<BatchResult>
+  batchUpdate(ids: string[], updates: UpdateTaskRequest, batchId?: string): Promise<BatchResult>
+
+  // Hierarchy
+  getChildren(parentId: string): Promise<Task[]>
+  getDescendants(parentId: string): Promise<Task[]>
+  moveTask(id: string, newParentId: string | null): Promise<void>
+
+  // Snapshot (for undo support)
+  getSnapshots(ids: string[]): Promise<TaskSnapshot[]>
+  /** Restore task fields and tag links from snapshots as one atomic undo operation. */
+  restoreSnapshots(snapshots: TaskSnapshot[], batchId: string): Promise<BatchResult>
+
+  // Sync
+  getPendingSync(): Promise<SyncOperation[]>
+  markSynced(operationIds: string[]): Promise<void>
+}
+
+export interface ProjectRepository {
+  create(request: CreateProjectRequest): Promise<Project>
+  findById(id: string): Promise<Project | null>
+  findAll(): Promise<Project[]>
+  update(id: string, updates: UpdateProjectRequest): Promise<Project>
+  delete(id: string): Promise<void>
+}
+
+export interface TagRepository {
+  create(request: CreateTagRequest): Promise<Tag>
+  findById(id: string): Promise<Tag | null>
+  findAll(): Promise<Tag[]>
+  findByTaskId(taskId: string): Promise<Tag[]>
+  update(id: string, updates: UpdateTagRequest): Promise<Tag>
+  delete(id: string): Promise<void>
+  addToTask(taskId: string, tagId: string): Promise<void>
+  removeFromTask(taskId: string, tagId: string): Promise<void>
+  /** Transactional batch add tag */
+  batchAddTag(taskIds: string[], tagId: string, batchId?: string): Promise<BatchResult>
+  /** Transactional batch remove tag */
+  batchRemoveTag(taskIds: string[], tagId: string, batchId?: string): Promise<BatchResult>
+}
+
+export interface SettingsRepository {
+  get(key: string): Promise<string | null>
+  set(key: string, value: string): Promise<void>
+  delete(key: string): Promise<void>
+  getAll(): Promise<Record<string, string>>
+}
+
+// Repository container
+export interface Repositories {
+  tasks: TaskRepository
+  projects: ProjectRepository
+  tags: TagRepository
+  settings: SettingsRepository
+}
+
+// Validation helpers
+export function validateTaskTitle(title: string): { valid: boolean; error?: string } {
+  const trimmed = title.trim()
+  if (!trimmed) return { valid: false, error: '标题不能为空' }
+  if (trimmed.length > 500) return { valid: false, error: '标题不能超过500字符' }
+  return { valid: true }
+}
+
+export function validateTaskPriority(priority: string): priority is TaskPriority {
+  return ['p1', 'p2', 'p3', 'p4', 'none'].includes(priority)
+}
+
+export function validateTaskStatus(status: string): status is TaskStatus {
+  return ['todo', 'done', 'cancelled'].includes(status)
+}
+
+// Hierarchy validation
+export function validateHierarchy(taskId: string, newParentId: string | null, tasks: Task[]): { valid: boolean; error?: string } {
+  if (!newParentId) return { valid: true }
+
+  // Cannot move to self
+  if (taskId === newParentId) {
+    return { valid: false, error: '不能将任务移动到自己下面' }
+  }
+
+  // Check if newParentId is a descendant of taskId
+  const isDescendant = (parentId: string, targetId: string): boolean => {
+    const children = tasks.filter(t => t.parentId === parentId)
+    for (const child of children) {
+      if (child.id === targetId) return true
+      if (isDescendant(child.id, targetId)) return true
+    }
+    return false
+  }
+
+  if (isDescendant(taskId, newParentId)) {
+    return { valid: false, error: '不能将任务移动到自己的子任务下面' }
+  }
+
+  // Check max depth (3 levels)
+  const getDepth = (taskId: string): number => {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task || !task.parentId) return 0
+    return 1 + getDepth(task.parentId)
+  }
+
+  const targetDepth = getDepth(newParentId)
+  const maxDescendantDepth = getMaxDescendantDepth(taskId, tasks)
+
+  if (targetDepth + 1 + maxDescendantDepth > 3) {
+    return { valid: false, error: '移动后层级超过3级' }
+  }
+
+  return { valid: true }
+}
+
+function getMaxDescendantDepth(taskId: string, tasks: Task[]): number {
+  const children = tasks.filter(t => t.parentId === taskId)
+  if (children.length === 0) return 0
+  return 1 + Math.max(...children.map(c => getMaxDescendantDepth(c.id, tasks)))
+}
+
+// Task completion helpers
+export function shouldAutoCompleteParent(parentId: string, tasks: Task[]): boolean {
+  const children = tasks.filter(t => t.parentId === parentId && !t.deletedAt)
+  return children.length > 0 && children.every(t => t.status === 'done')
+}
+
+export function hasUncompletedChildren(parentId: string, tasks: Task[]): boolean {
+  const children = tasks.filter(t => t.parentId === parentId && !t.deletedAt)
+  return children.some(t => t.status !== 'done')
+}
+
+// Trash helpers
+export function isExpired(deletedAt: string, retentionDays: number = 30): boolean {
+  const deleted = new Date(deletedAt)
+  const expires = new Date(deleted.getTime() + retentionDays * 24 * 60 * 60 * 1000)
+  return expires < new Date()
 }

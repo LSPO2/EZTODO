@@ -14,10 +14,16 @@
     "lint": "npm run lint -w apps/desktop",
     "test": "npm run test -w apps/desktop",
     "tauri": "npm run tauri -w apps/desktop",
-    "check:frontend": "npm run lint && npm run test && npm run build",
-    "check:api": "cd services/api && python -m pytest tests/ -v",
+
+    "check:deps": "npm ci --dry-run --ignore-scripts",
+    "check:frontend": "npm run check:deps && npm run lint && npm run tsc && npm run test && npm run build",
+    "tsc": "npx tsc -p apps/desktop/tsconfig.app.json --noEmit",
+    "check:api": "node scripts/check-api.js",
     "check:matrix": "node scripts/verify-matrix.js",
-    "check:all": "npm run check:frontend && npm run check:matrix"
+    "check:git": "git diff --check",
+    "check:contracts": "npm run build -w packages/contracts",
+    "check:rust": "cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy -- -D warnings",
+    "check:all": "npm run check:frontend && npm run check:contracts && npm run check:api && npm run check:matrix && npm run check:git"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -3,8 +3,8 @@
  * Handles importing tasks from CSV, JSON, and other formats
  */
 
-import { getDatabase } from './database'
-import { v4 as uuidv4 } from 'uuid'
+import { getSqlRepository } from './repositories/sql-repository'
+import { v7 as uuidv7 } from 'uuid'
 
 export type ImportFormat = 'csv' | 'json' | 'markdown'
 
@@ -242,6 +242,33 @@ function suggestColumnMapping(headers: string[]): ColumnMapping[] {
     '项目': 'project',
     'tags': 'tags',
     '标签': 'tags',
+    // camelCase aliases (from JSON export)
+    'parentid': 'parent_id',
+    'parent_id': 'parent_id',
+    'projectid': 'project_id',
+    'project_id': 'project_id',
+    'scheduleddate': 'scheduled_date',
+    'scheduled_date': 'scheduled_date',
+    'scheduledat': 'scheduled_at',
+    'scheduled_at': 'scheduled_at',
+    'dueat': 'due_at',
+    'due_at': 'due_at',
+    'isallday': 'is_all_day',
+    'is_all_day': 'is_all_day',
+    'sortorder': 'sort_order',
+    'sort_order': 'sort_order',
+    'estimatedminutes': 'estimated_minutes',
+    'estimated_minutes': 'estimated_minutes',
+    'createdat': 'created_at',
+    'created_at': 'created_at',
+    'updatedat': 'updated_at',
+    'updated_at': 'updated_at',
+    'completedat': 'completed_at',
+    'completed_at': 'completed_at',
+    'deletedat': 'deleted_at',
+    'deleted_at': 'deleted_at',
+    'sourcecaptureid': 'source_capture_id',
+    'source_capture_id': 'source_capture_id',
   }
 
   for (const header of headers) {
@@ -324,8 +351,8 @@ export async function importTasks(
   content: string,
   options: ImportOptions
 ): Promise<ImportResult> {
-  const batchId = uuidv4()
-  const db = await getDatabase()
+  const batchId = uuidv7()
+  const db = await getSqlRepository()
   const errors: ImportError[] = []
   let imported = 0
   let skipped = 0
@@ -441,7 +468,7 @@ function applyColumnMapping(data: any, mapping: ColumnMapping[]): any {
  * Check if task already exists
  */
 async function checkTaskExists(title: string): Promise<boolean> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   const result = await db.select(
     `SELECT COUNT(*) as count FROM tasks WHERE title = $1 AND deleted_at IS NULL`,
@@ -454,31 +481,36 @@ async function checkTaskExists(title: string): Promise<boolean> {
 /**
  * Insert task into database
  */
-async function insertTask(data: any, _batchId: string): Promise<void> {
-  const db = await getDatabase()
-  const id = uuidv4()
+async function insertTask(data: any, batchId: string): Promise<void> {
+  const db = await getSqlRepository()
+  const id = uuidv7()
   const now = new Date().toISOString()
+
+  // Support both camelCase and snake_case keys
+  const title = (data.title || data.Title || '').trim() || 'Untitled'
+  const note = data.note || data.Note || null
+  const status = data.status || data.Status || 'todo'
+  const priority = data.priority || data.Priority || 'none'
+  const parentId = data.parent_id || data.parentId || data.ParentId || null
+  const projectId = data.project_id || data.projectId || data.ProjectId || null
+  const sortOrder = data.sort_order || data.sortOrder || 0
+  const scheduledDate = data.scheduled_date || data.scheduledDate || null
+  const scheduledAt = data.scheduled_at || data.scheduledAt || null
+  const dueAt = data.due_at || data.dueAt || null
+  const isAllDay = data.is_all_day || data.isAllDay || false
+  const timezone = data.timezone || data.Timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+  const estimatedMinutes = data.estimated_minutes || data.estimatedMinutes || null
 
   await db.execute(
     `INSERT INTO tasks (
-      id, title, note, status, priority, scheduled_date, scheduled_at, due_at,
-      is_all_day, timezone, created_at, updated_at, revision, source
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      id, parent_id, project_id, title, note, status, priority, sort_order,
+      scheduled_date, scheduled_at, due_at, is_all_day, timezone, estimated_minutes,
+      created_at, updated_at, revision, source, source_capture_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'import', $18)`,
     [
-      id,
-      data.title?.trim() || 'Untitled',
-      data.note || null,
-      data.status || 'todo',
-      data.priority || 'none',
-      data.scheduled_date || null,
-      data.scheduled_at || null,
-      data.due_at || null,
-      data.is_all_day || false,
-      data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-      now,
-      now,
-      1,
-      'import',
+      id, parentId, projectId, title, note, status, priority, sortOrder,
+      scheduledDate, scheduledAt, dueAt, isAllDay ? 1 : 0, timezone, estimatedMinutes,
+      now, now, 1, batchId,
     ]
   )
 }
@@ -486,14 +518,12 @@ async function insertTask(data: any, _batchId: string): Promise<void> {
 /**
  * Undo import by batch ID
  */
-export async function undoImport(_batchId: string): Promise<number> {
-  const db = await getDatabase()
+export async function undoImport(batchId: string): Promise<number> {
+  const db = await getSqlRepository()
 
   const result = await db.execute(
-    `DELETE FROM tasks WHERE source = 'import' AND created_at IN (
-       SELECT created_at FROM tasks WHERE source = 'import'
-       LIMIT 1000
-     )`
+    `DELETE FROM tasks WHERE source = 'import' AND source_capture_id = $1`,
+    [batchId]
   )
 
   return result.rowsAffected

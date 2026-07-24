@@ -2,8 +2,12 @@
  * System tray module
  */
 
-import { TrayIcon } from '@tauri-apps/api/tray'
+import { TrayIcon, type TrayIconEvent } from '@tauri-apps/api/tray'
 import { Menu } from '@tauri-apps/api/menu'
+import { defaultWindowIcon } from '@tauri-apps/api/app'
+import { Image } from '@tauri-apps/api/image'
+import { emit } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { hideToTray, showFromTray, isWindowVisible } from './window'
 
 let trayIcon: TrayIcon | null = null
@@ -15,11 +19,16 @@ export async function initializeTray(): Promise<void> {
   try {
     // Create tray menu
     const menu = await createTrayMenu()
+    const icon = await defaultWindowIcon()
+
+    if (!icon) {
+      throw new Error('Default application icon is unavailable')
+    }
 
     // Create tray icon
     trayIcon = await TrayIcon.new({
       id: 'eztodo-tray',
-      icon: 'icons/tray.ico',
+      icon,
       menu,
       menuOnLeftClick: false,
       tooltip: 'EZTODO',
@@ -70,7 +79,11 @@ async function createTrayMenu(): Promise<Menu> {
 /**
  * Handle tray icon click
  */
-async function handleTrayClick(): Promise<void> {
+async function handleTrayClick(event: TrayIconEvent): Promise<void> {
+  if (event.type !== 'Click' || event.button !== 'Left' || event.buttonState !== 'Up') {
+    return
+  }
+
   const isVisible = await isWindowVisible()
 
   if (isVisible) {
@@ -85,8 +98,7 @@ async function handleTrayClick(): Promise<void> {
  */
 async function handleQuickAdd(): Promise<void> {
   await showFromTray()
-  // TODO: Open quick add dialog
-  console.log('Quick add triggered from tray')
+  await emit('tray:quick-add')
 }
 
 /**
@@ -94,16 +106,14 @@ async function handleQuickAdd(): Promise<void> {
  */
 async function handleShowToday(): Promise<void> {
   await showFromTray()
-  // TODO: Navigate to today view
-  console.log('Show today triggered from tray')
+  await emit('tray:show-today')
 }
 
 /**
  * Handle sync from tray menu
  */
 async function handleSync(): Promise<void> {
-  // TODO: Trigger sync
-  console.log('Sync triggered from tray')
+  await emit('tray:sync')
 }
 
 /**
@@ -111,24 +121,16 @@ async function handleSync(): Promise<void> {
  */
 async function handleSettings(): Promise<void> {
   await showFromTray()
-  // TODO: Open settings
-  console.log('Settings triggered from tray')
+  await emit('tray:settings')
 }
 
 /**
  * Handle quit from tray menu
  */
 async function handleQuit(): Promise<void> {
-  // Show confirmation dialog
-  const confirmed = window.confirm('退出后将无法收到本地提醒，确定要退出吗？')
-
-  if (confirmed) {
-    // TODO: Perform cleanup
-    console.log('Quitting application')
-    // In Tauri, we can use process.exit or app.quit
-    // For now, just hide to tray
-    await hideToTray()
-  }
+  // Destroy the window to actually quit the application
+  const window = getCurrentWindow()
+  await window.destroy()
 }
 
 /**
@@ -136,7 +138,8 @@ async function handleQuit(): Promise<void> {
  */
 export async function updateTrayIcon(iconPath: string): Promise<void> {
   if (trayIcon) {
-    await trayIcon.setIcon(iconPath)
+    const icon = await Image.fromPath(iconPath)
+    await trayIcon.setIcon(icon)
   }
 }
 

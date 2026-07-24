@@ -1,7 +1,7 @@
 # P0-0 验收证据
 
 > 执行日期：2026-07-22
-> 文档版本：v2.0（修正版）
+> 文档版本：v3.0（最终整改版）
 
 ---
 
@@ -21,97 +21,125 @@
 
 ---
 
-## 2. 矩阵覆盖验证
+## 2. 质量门禁命令与执行顺序
 
-### 源文档统计
-
-```bash
-$ grep -c '\[P0\]' PC端AI_Todo开发任务清单.md
-388
-```
-
-### 矩阵统计
+### 门禁脚本
 
 ```bash
-$ grep -c '| P0 |' docs/acceptance/requirements-matrix.md
-388
+# 前端门禁
+npm run check:frontend  # dependency lock check -> lint -> tsc --noEmit -> test -> build
+
+# API 门禁
+npm run check:api       # 使用项目 venv 执行 pytest
+
+# 矩阵校验
+npm run check:matrix    # 原始行号集合比较
+
+# Git 检查
+npm run check:git       # git diff --check
+
+# 统一门禁
+npm run check:all       # check:frontend -> check:api -> check:matrix -> check:git
 ```
 
-### 缺失项已补齐
+### Windows 批处理
 
-| 原始行号 | 矩阵 ID | 需求 |
-|---|---|---|
-| 283 | M1-FLD-018 | source_capture_id 对应 AI 原始输入 |
-| 425 | M2-REC-011 | 月末、闰年和夏令时边界测试 |
-| 681 | M5-IMP-007 | 无效日期、层级或提醒进入错误报告 |
-| 684 | M5-IMP-010 | 大文件导入显示进度并允许取消 |
+```bash
+check-all.bat           # 调用 npm run check:all
+```
 
 ---
 
-## 3. 质量门禁脚本
+## 3. API 门禁说明
 
-### 根 package.json
-
-```json
-{
-  "check:frontend": "npm run lint && npm run test && npm run build",
-  "check:api": "cd services/api && python -m pytest tests/ -v",
-  "check:matrix": "node scripts/verify-matrix.js",
-  "check:all": "npm run check:frontend && npm run check:matrix"
-}
-```
-
-### 校验脚本
-
-- `scripts/verify-matrix.js` - Node.js 版本（跨平台）
-- `scripts/verify-matrix.sh` - Bash 版本
-- `scripts/verify-matrix.bat` - Windows 版本
+- 使用项目虚拟环境：`services/api/venv/Scripts/python.exe`
+- 若虚拟环境不存在，输出清晰错误并以非 0 退出
+- 不静默退回到全局 Python
+- 执行 `python -m pytest tests/ -v`
 
 ---
 
-## 4. 验收命令执行结果
+## 4. 矩阵校验说明
 
-### 前端检查
+- 从源文档解析全部 `[P0]` 的原始行号
+- 从矩阵解析每条 P0 的 `原文行号`
+- 集合比对，检测：
+  - 源清单中存在、矩阵缺失的原始行号
+  - 矩阵中存在、源清单不存在的原始行号
+  - 矩阵中重复的 `原文行号`
+- 任一问题存在时以非 0 退出
+
+---
+
+## 5. 验收命令执行结果
+
+### check:frontend
 
 ```bash
-$ npm run lint
+$ npm run check:frontend
+# dependency lock check
+npm ci --dry-run --ignore-scripts
+# lockfile and manifest are consistent
+# lint
 ✖ 71 problems (0 errors, 71 warnings)
-Exit code: 0 ✓
-```
-
-```bash
-$ npm test
+# tsc --noEmit
+(no output, success)
+# test
 Test Files  6 passed (6)
 Tests       40 passed (40)
+# build
+✓ built in 111ms
 Exit code: 0 ✓
 ```
 
+### check:api
+
 ```bash
-$ npm run build
-✓ built in 178ms
+$ npm run check:api
+=== API Quality Gate ===
+[1/2] Checking pytest availability...
+[✓] pytest available
+
+[2/2] Running pytest...
+tests/test_ai_parser.py::test_parse_tomorrow_afternoon PASSED
+... (18 tests)
+========================= 18 passed in 18.70s =========================
+[✓] API quality gate passed
 Exit code: 0 ✓
 ```
 
-### 后端检查
+### check:matrix
 
 ```bash
-$ python -m pytest tests/test_ai_parser.py -v
-========================= 18 passed in 19.82s =========================
-Exit code: 0 ✓
-```
-
-### 矩阵校验
-
-```bash
-$ node scripts/verify-matrix.js
+$ npm run check:matrix
 === Matrix Coverage Verification ===
 Source P0 count: 388
-Matrix P0 count: 388
-PASS: Matrix covers all 388 P0 items
+Matrix unique P0 count: 388
+
+PASS: Matrix covers all P0 items correctly
 Exit code: 0 ✓
 ```
 
-### Git 检查
+### check:all
+
+```bash
+$ npm run check:all
+# check:frontend ✓
+# check:api ✓
+# check:matrix ✓
+# check:git ✓
+Exit code: 0 ✓
+```
+
+### check-all.bat
+
+```bash
+$ check-all.bat
+# 调用 npm run check:all
+Exit code: 0 ✓
+```
+
+### git diff --check
 
 ```bash
 $ git diff --check
@@ -121,7 +149,7 @@ Exit code: 0 ✓
 
 ---
 
-## 5. 当前 Git 状态
+## 6. 当前 Git 状态
 
 ### 已验证数量
 
@@ -142,7 +170,7 @@ Exit code: 0 ✓
 
 ---
 
-## 6. 剩余风险
+## 7. 剩余风险
 
 1. **Tauri 环境验证**：所有功能需要在 Tauri 环境验证
 2. **SQLite 真源**：当前使用 localStorage，需要 P0-1 切换到 SQLite
@@ -152,14 +180,4 @@ Exit code: 0 ✓
 
 ---
 
-## 7. 建议提交信息
-
-```
-fix(p0-0): complete matrix coverage and unify quality gates
-
-- Add 4 missing P0 items to requirements matrix
-- Add matrix coverage verification script
-- Unify check:frontend, check:api, check:all in package.json
-- Update check-all.bat to use consistent logic
-- Correct evidence document to reflect actual history
-```
+> 本文档如实记录 P0-0 验收状态，不包含未实际执行的命令

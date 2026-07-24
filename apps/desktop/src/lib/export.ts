@@ -3,7 +3,7 @@
  * Handles exporting tasks to CSV, JSON, and Markdown formats
  */
 
-import { getDatabase } from './database'
+import { getSqlRepository } from './repositories/sql-repository'
 
 export type ExportFormat = 'csv' | 'json' | 'markdown'
 
@@ -30,7 +30,7 @@ export interface ExportResult {
  * Export tasks to file
  */
 export async function exportTasks(options: ExportOptions): Promise<ExportResult> {
-  const db = await getDatabase()
+  const db = await getSqlRepository()
 
   // Build query
   let query = `SELECT * FROM tasks WHERE 1=1`
@@ -113,25 +113,32 @@ function exportToCSV(tasks: any[]): ExportResult {
  */
 function exportToJSON(tasks: any[]): ExportResult {
   const exportData = {
-    version: '1.0',
+    version: '2.0',
     exportedAt: new Date().toISOString(),
     appVersion: '0.1.0',
     itemCount: tasks.length,
     tasks: tasks.map(task => ({
       id: task.id,
+      parent_id: task.parent_id,
+      project_id: task.project_id,
       title: task.title,
       note: task.note,
       status: task.status,
       priority: task.priority,
-      scheduledDate: task.scheduled_date,
-      scheduledAt: task.scheduled_at,
-      dueAt: task.due_at,
-      isAllDay: task.is_all_day,
+      sort_order: task.sort_order,
+      scheduled_date: task.scheduled_date,
+      scheduled_at: task.scheduled_at,
+      due_at: task.due_at,
+      is_all_day: task.is_all_day,
       timezone: task.timezone,
-      createdAt: task.created_at,
-      updatedAt: task.updated_at,
-      completedAt: task.completed_at,
+      estimated_minutes: task.estimated_minutes,
+      created_at: task.created_at,
+      updated_at: task.updated_at,
+      completed_at: task.completed_at,
+      deleted_at: task.deleted_at,
+      revision: task.revision,
       source: task.source,
+      source_capture_id: task.source_capture_id,
     })),
   }
 

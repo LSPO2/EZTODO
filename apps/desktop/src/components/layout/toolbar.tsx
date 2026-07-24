@@ -4,55 +4,28 @@
 
 import React, { useState } from 'react'
 import { useTaskStore } from '../../stores'
-import { FilterBar, SortMenu } from '../view'
-import type { SortField, SortDirection } from '../../lib/repositories'
 
 export const Toolbar: React.FC = () => {
-  const { searchTasks, loadTasks, currentView, filters, setFilters } = useTaskStore()
+  const { currentView, filters, setFilters } = useTaskStore()
   const [searchQuery, setSearchQuery] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
-  const [sortField, setSortField] = useState<SortField>('sortOrder')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (searchQuery.trim()) {
-      setIsSearching(true)
-      await searchTasks(searchQuery)
-      setIsSearching(false)
-    } else {
-      loadTasks()
-    }
-  }
-
-  const handleClearSearch = () => {
-    setSearchQuery('')
-    loadTasks()
-  }
-
-  const handleSortChange = (field: SortField, direction: SortDirection) => {
-    setSortField(field)
-    setSortDirection(direction)
-    // TODO: Apply sorting to task list
-  }
-
-  const getViewTitle = () => {
-    switch (currentView) {
-      case 'inbox': return '📥 收件箱'
-      case 'today': return '📅 今天'
-      case 'week': return '📆 未来 7 天'
-      case 'overdue': return '⚠️ 已逾期'
-      case 'no-date': return '📋 无日期任务'
-      case 'completed': return '✅ 已完成'
-      case 'trash': return '🗑️ 回收站'
-      default: return '📋 EZTODO'
-    }
+    setFilters({ ...filters, search: searchQuery || undefined })
   }
 
   return (
     <div className="toolbar">
       <div className="toolbar-title">
-        <h2>{getViewTitle()}</h2>
+        <h2>
+          {currentView === 'inbox' && '📥 收件箱'}
+          {currentView === 'today' && '📅 今天'}
+          {currentView === 'week' && '📆 未来 7 天'}
+          {currentView === 'overdue' && '⚠️ 已逾期'}
+          {currentView === 'no-date' && '📋 无日期'}
+          {currentView === 'completed' && '✅ 已完成'}
+          {currentView === 'trash' && '🗑️ 回收站'}
+        </h2>
       </div>
 
       <form className="toolbar-search" onSubmit={handleSearch}>
@@ -60,31 +33,10 @@ export const Toolbar: React.FC = () => {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="🔍 搜索任务..."
-          disabled={isSearching}
+          placeholder="🔍 搜索..."
+          style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '6px', width: '200px' }}
         />
-        {searchQuery && (
-          <button
-            type="button"
-            className="btn-clear"
-            onClick={handleClearSearch}
-          >
-            ✕
-          </button>
-        )}
       </form>
-
-      <div className="toolbar-actions">
-        <FilterBar
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
-        <SortMenu
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
-        />
-      </div>
     </div>
   )
 }

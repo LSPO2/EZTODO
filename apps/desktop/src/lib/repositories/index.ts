@@ -1,19 +1,17 @@
 /**
  * Repositories index
- * Auto-selects between Tauri and browser implementations
+ * Provides unified access to data layer
  */
 
+// Types
 export * from './types'
 
-// Import browser repositories
-import { BrowserTaskRepository, BrowserProjectRepository, BrowserTagRepository } from './browser-repository'
+// Factory
+export { getRepositories, resetRepositories, isDemoMode } from './factory'
 
-// Export repositories (browser-compatible by default)
-export const taskRepository = new BrowserTaskRepository()
-export const projectRepository = new BrowserProjectRepository()
-export const tagRepository = new BrowserTagRepository()
+// Implementations (for direct use in tests)
+export { BrowserTaskRepository, BrowserProjectRepository, BrowserTagRepository, BrowserSettingsRepository, createBrowserRepositories } from './browser-repository'
+export { SQLiteTaskRepository, SQLiteProjectRepository, SQLiteTagRepository, SQLiteSettingsRepository, createSQLiteRepositories } from './sqlite-repository'
 
-// Re-export classes
-export { BrowserTaskRepository as TaskRepository }
-export { BrowserProjectRepository as ProjectRepository }
-export { BrowserTagRepository as TagRepository }
+export { getSqlRepository } from './sql-repository'
+export type { SqlRepository } from './sql-repository'
