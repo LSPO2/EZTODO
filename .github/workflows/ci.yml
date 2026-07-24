@@ -11,12 +11,12 @@ jobs:
     name: Frontend Quality Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -50,26 +50,34 @@ jobs:
       run:
         working-directory: services/api
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest tests/ -v
+        env:
+          PYTHONPATH: ${{ github.workspace }}/services/api
+          PYTHONUTF8: '1'
+        run: python -m pytest tests/ -v
 
   rust:
     name: Rust Quality Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -80,13 +88,13 @@ jobs:
         run: cd apps/desktop/src-tauri && cargo fmt --check
 
       - name: Run clippy
-        run: cd apps/desktop/src-tauri && cargo clippy -- -D warnings
+        run: cd apps/desktop/src-tauri && cargo clippy --locked -- -D warnings
 
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build API image
         run: docker build -t eztodo-api services/api
