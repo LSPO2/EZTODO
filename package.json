@@ -1,7 +1,7 @@
 {
   "name": "eztodo",
   "private": true,
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "EZTODO - AI Todo Application",
   "workspaces": [
     "apps/desktop",
@@ -15,7 +15,6 @@
     "lint": "npm run lint -w apps/desktop",
     "test": "npm run test -w apps/desktop",
     "tauri": "npm run tauri -w apps/desktop",
-
     "check:deps": "npm ci --dry-run --ignore-scripts",
     "check:frontend": "npm run check:deps && npm run lint && npm run tsc && npm run test && npm run build",
     "tsc": "npx tsc -p apps/desktop/tsconfig.app.json --noEmit",

@@ -125,6 +125,10 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }));
+        builder = builder.plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ));
     }
 
     builder

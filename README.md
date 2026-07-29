@@ -10,14 +10,14 @@
 
 <p align="center">
   <a href="https://github.com/LSPO2/EZTODO/actions/workflows/ci.yml"><img src="https://github.com/LSPO2/EZTODO/actions/workflows/ci.yml/badge.svg?branch=develop" alt="EZTODO CI" /></a>
-  <img src="https://img.shields.io/badge/version-2.0.1-2563eb" alt="Version 2.0.1" />
+  <img src="https://img.shields.io/badge/version-2.0.2-2563eb" alt="Version 2.0.2" />
   <img src="https://img.shields.io/badge/platform-Windows-0078d4" alt="Windows" />
   <img src="https://img.shields.io/badge/status-active_development-f59e0b" alt="Active development" />
 </p>
 
 EZTODO 使用 Tauri 2、React、TypeScript、Zustand 与 SQLite 构建桌面端，在本地完成任务管理、层级组织、提醒、数据维护和 BYOK AI 辅助录入。仓库同时包含 FastAPI 服务端、共享契约和部署配置，为后续账号与多设备同步提供基础。
 
-> 当前版本：**v2.0.1**<br>
+> 当前版本：**v2.0.2**<br>
 > 项目阶段：**核心桌面流程与分类管理已接线，自动化门禁通过，分类管理已完成 Windows/Tauri 实机复验。**<br>
 > 状态更新：**2026-07-29**
 
@@ -30,7 +30,7 @@ EZTODO 使用 Tauri 2、React、TypeScript、Zustand 与 SQLite 构建桌面端�
 | 搜索、筛选与排序 | 已接线、自动化通过 | 项目、标签、优先级、状态、时间和手动顺序 |
 | 分类管理 | 已接线、自动化及真机通过 | 左侧栏快速创建、删除和排序；删除分类后任务转为未分类 |
 | SQLite 本地持久化 | 已接线、自动化通过 | Repository 边界、迁移、事务、outbox 与 WAL 模式 |
-| 提醒、重复任务与托盘 | 已接线、自动化通过 | 生命周期联动已覆盖；通知、睡眠唤醒和托盘仍需真机复验 |
+| 提醒、重复任务、托盘与自启 | 已接线、自动化通过 | 默认提前 30 分钟提醒与开机自启已覆盖；通知、睡眠唤醒和自启仍需真机复验 |
 | 导入、导出与备份 | 已实现并接入 | CSV/JSON 与本地备份可用；原子恢复仍是发布前工作 |
 | BYOK AI 辅助添加 | 已接线、自动化通过 | 设置、连接反馈、结构化解析、可编辑确认后写入 |
 | 账号与多设备同步 | 开发中 | API、共享契约和 outbox 已具备，完整同步闭环尚未验收 |
@@ -43,12 +43,12 @@ EZTODO 使用 Tauri 2、React、TypeScript、Zustand 与 SQLite 构建桌面端�
 - 项目、标签、优先级、全文搜索、组合筛选与多种排序方式。
 - 左侧分类管理，可快速创建、删除和调整分类顺序；删除分类不会删除关联任务。
 - 批量完成、删除、恢复、修改优先级、移动项目和增删标签。
-- 开始时间、截止时间、重复规则、提醒调度、托盘和窗口关闭保护。
+- 开始时间、截止时间、默认提前 30 分钟提醒、重复规则、托盘、开机自启和窗口关闭保护。
 - CSV/JSON 导入导出、完整备份和本地 SQLite 数据持久化。
 - OpenAI-compatible BYOK 设置、连接测试、AI 任务拆解和确认后创建。
 - 10,000 条固定数据集的查询与首屏渲染性能门禁。
 
-AI 生成结果不会直接写入任务库：用户可以先编辑确认卡，再明确确认创建。API Base 与模型设置会持久化；API Key 当前只保留在进程内存中，不写入 SQLite、localStorage 或日志。
+AI 生成结果不会直接写入任务库：用户可以先编辑确认卡，再明确确认创建。API Base 与模型设置会持久化；用户选择记住时，API Key 写入 Windows 凭据管理器；否则只保留在当前进程内存中，不写入 SQLite、localStorage 或日志。
 
 ## 自动化验证
 
@@ -56,7 +56,7 @@ AI 生成结果不会直接写入任务库：用户可以先编辑确认卡，�
 
 | 检查 | 结果 |
 |---|---:|
-| 前端测试 | 30 个文件，226 项通过 |
+| 前端测试 | 31 个文件，229 项通过 |
 | API 测试 | 18 项通过 |
 | TypeScript | 0 error |
 | ESLint | 0 error，69 warning |
@@ -67,6 +67,12 @@ AI 生成结果不会直接写入任务库：用户可以先编辑确认卡，�
 
 自动化测试主要运行在 Node/jsdom 与 Browser Repository 环境中。上述结果证明当前代码门禁通过，不等同于 Windows WebView、真实 SQLite、真实 AI 服务、通知/托盘、安装升级或多设备同步已经完成最终验收。
 
+## v2.0.2 更新
+
+- 设置新增“常规设置”和 Windows 开机自启开关，可读取、开启、关闭并复核系统状态。
+- 高级新增任务填写计划开始或截止时间后，默认选择提前 30 分钟提醒。
+- AI 添加的任务只要包含计划时间，就会自动建立对应的提前 30 分钟提醒。
+- 增加开机自启和默认提醒的自动化测试，并完成 Windows release 构建。
 ## v2.0.1 更新
 
 - 在左侧分类栏新增管理按钮。
@@ -77,7 +83,7 @@ AI 生成结果不会直接写入任务库：用户可以先编辑确认卡，�
 
 ## 当前发布边界
 
-v2.0.1 仍属于开发与验收版本，分类管理已完成真机复验，但尚未达到完整发布清单的最终通过状态。主要剩余工作：
+v2.0.2 仍属于开发与验收版本，分类管理已完成真机复验，但尚未达到完整发布清单的最终通过状态。主要剩余工作：
 
 - 完成 Windows/Tauri 原生流程、通知、睡眠唤醒、托盘和快捷键真机验收。
 - 完成真实 API 连接、AI 任务落库与多任务原子写入验收。

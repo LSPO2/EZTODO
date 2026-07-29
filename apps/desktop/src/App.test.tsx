@@ -126,6 +126,8 @@ describe('P0-2 App interactions', () => {
     expect(mocks.setFilters).toHaveBeenCalledWith({ projectId: 'p1' })
 
     fireEvent.click(screen.getByRole('button', { name: '⚙️ 设置' }))
+    expect(screen.getByRole('heading', { name: '常规设置' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: '开机自启' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '回收站' }))
     expect(mocks.setView).toHaveBeenCalledWith('trash')
   })
@@ -194,11 +196,12 @@ describe('P0-2 App interactions', () => {
     })
     mocks.createTask.mockResolvedValueOnce({
       id: 'ai-1', parentId: null, projectId: null, title: 'AI 识别任务', note: 'AI 备注',
-      status: 'todo', priority: 'p2', sortOrder: 0, scheduledDate: null, scheduledAt: null,
-      dueAt: null, isAllDay: false, timezone: 'Asia/Shanghai', estimatedMinutes: null,
+      status: 'todo', priority: 'p2', sortOrder: 0, scheduledDate: '2099-08-01', scheduledAt: '2099-08-01T09:30:00+08:00',
+      dueAt: '2099-08-01T11:00:00+08:00', isAllDay: false, timezone: 'Asia/Shanghai', estimatedMinutes: null,
       createdAt: '', updatedAt: '', completedAt: null, deletedAt: null, revision: 1,
       source: 'ai', sourceCaptureId: null,
     })
+    const reminderSpy = vi.spyOn(reminderScheduler, 'setTaskReminders').mockResolvedValue(undefined)
     render(<App />)
 
     fireEvent.change(screen.getByLabelText('添加任务内容'), { target: { value: '明天交报告' } })
@@ -215,6 +218,12 @@ describe('P0-2 App interactions', () => {
     }))
     expect(await screen.findByRole('heading', { name: '任务详情' })).toBeInTheDocument()
     expect(screen.getByLabelText('任务标题')).toHaveValue('AI 识别任务')
+    expect(within(screen.getByTestId('start-reminder-editor')).getByRole('button', { name: '前半小时' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(screen.getByTestId('due-reminder-editor')).getByRole('button', { name: '前半小时' })).toHaveAttribute('aria-pressed', 'true')
+    expect(reminderSpy).toHaveBeenCalledWith(expect.objectContaining({ id: 'ai-1' }), [
+      { kind: 'start', remindAt: calculateReminderTime('2099-08-01T09:30:00+08:00', 30) },
+      { kind: 'due', remindAt: calculateReminderTime('2099-08-01T11:00:00+08:00', 30) },
+    ])
   })
   it('uses clear hierarchy labels and disables actions that cannot succeed', () => {
     const firstTask: Task = {
@@ -318,10 +327,12 @@ describe('P0-2 App interactions', () => {
 
     const startEditor = within(screen.getByTestId('start-reminder-editor'))
     expect(startEditor.getByRole('button', { name: '前一天' })).toBeInTheDocument()
+    expect(startEditor.getByRole('button', { name: '前半小时' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(startEditor.getByRole('button', { name: '指定日期时间' }))
     fireEvent.change(startEditor.getByLabelText('开始提醒指定时间'), { target: { value: '2099-08-01T08:15' } })
 
     const dueEditor = within(screen.getByTestId('due-reminder-editor'))
+    expect(dueEditor.getByRole('button', { name: '前半小时' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(dueEditor.getByRole('button', { name: '自定义提前量' }))
     fireEvent.change(dueEditor.getByLabelText('截止提醒提前小时'), { target: { value: '2' } })
     fireEvent.change(dueEditor.getByLabelText('截止提醒提前分钟'), { target: { value: '15' } })

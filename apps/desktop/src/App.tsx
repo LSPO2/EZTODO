@@ -10,7 +10,7 @@ import { useProjectStore } from './stores/project-store'
 import type { Task, Project, ViewType, TaskPriority, TaskStatus, SortField } from './lib/repositories'
 import { exportTasks, downloadExport } from './lib/export'
 import { importTasks } from './lib/import'
-import { AISettingsPanel } from './components/settings'
+import { AISettingsPanel, StartupSettingsPanel } from './components/settings'
 import { parseTaskWithAI, type AIParsedTask } from './lib/ai-client'
 import {
   DEFAULT_AI_SETTINGS,
@@ -58,6 +58,15 @@ function emptyReminderDraft(): ReminderDraft {
   return { mode: 'none', offsetHours: 0, offsetMinutes: 30, exactAt: '' }
 }
 
+function defaultReminderDraft(): ReminderDraft {
+  return { mode: 'offset', offsetHours: 0, offsetMinutes: 30, exactAt: '' }
+}
+
+function reminderDraftForPlannedTime(value: string, previousValue: string, current: ReminderDraft): ReminderDraft {
+  if (!value) return emptyReminderDraft()
+  return !previousValue && current.mode === 'none' ? defaultReminderDraft() : current
+}
+
 function reminderDraftFromTimes(baseAt: string | null, remindAt: string | null): ReminderDraft {
   if (!remindAt) return emptyReminderDraft()
   if (baseAt) {
@@ -78,7 +87,7 @@ function resolveReminderAt(baseAt: string | null, draft: ReminderDraft): string 
   if (!baseAt) return null
   return calculateReminderTime(baseAt, Math.max(0, draft.offsetHours) * 60 + Math.max(0, draft.offsetMinutes))
 }
-function toTaskDetailDraft(task: Task, projects: Project[]): TaskDetailDraft {
+function toTaskDetailDraft(task: Task, projects: Project[], defaultScheduledReminders = false): TaskDetailDraft {
   const scheduledAt = task.scheduledAt
     ? toDateTimeLocal(task.scheduledAt)
     : task.scheduledDate ? `${task.scheduledDate}T00:00` : ''
@@ -90,8 +99,8 @@ function toTaskDetailDraft(task: Task, projects: Project[]): TaskDetailDraft {
     categoryName: projects.find(project => project.id === task.projectId)?.name ?? '',
     scheduledAt,
     dueAt: toDateTimeLocal(task.dueAt),
-    startReminder: emptyReminderDraft(),
-    dueReminder: emptyReminderDraft(),
+    startReminder: defaultScheduledReminders && scheduledAt ? defaultReminderDraft() : emptyReminderDraft(),
+    dueReminder: defaultScheduledReminders && task.dueAt ? defaultReminderDraft() : emptyReminderDraft(),
   }
 }
 
@@ -111,7 +120,7 @@ const App: React.FC = () => {
   const [inputValue, setInputValue] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showPage, setShowPage] = useState<'tasks' | 'settings'>('tasks')
-  const [settingsSection, setSettingsSection] = useState<'ai' | 'data' | 'trash'>('ai')
+  const [settingsSection, setSettingsSection] = useState<'general' | 'ai' | 'data' | 'trash'>('general')
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
   const [showFilters, setShowFilters] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
@@ -333,7 +342,7 @@ const App: React.FC = () => {
       closeDetail()
       clearSelection()
       if (destination === 'settings') {
-        setSettingsSection('ai')
+        setSettingsSection('general')
         setShowPage('settings')
         return
       }
@@ -408,6 +417,17 @@ const App: React.FC = () => {
       source: 'ai',
     })
 
+    const defaultReminders: PlannedReminderInput[] = []
+    if (created.scheduledAt) {
+      defaultReminders.push({ kind: 'start', remindAt: calculateReminderTime(created.scheduledAt, 30) })
+    }
+    if (created.dueAt) {
+      defaultReminders.push({ kind: 'due', remindAt: calculateReminderTime(created.dueAt, 30) })
+    }
+    if (defaultReminders.length > 0) {
+      await reminderScheduler.setTaskReminders(created, defaultReminders)
+    }
+
     for (const subtask of task.subtasks) {
       await createAIParsedTask(subtask, created.id, categoryCache)
     }
@@ -449,7 +469,7 @@ const App: React.FC = () => {
         setInputValue('')
         setCurrentTask(firstCreated)
         setDetailMode('edit')
-        const draft = toTaskDetailDraft(firstCreated, projects)
+        const draft = toTaskDetailDraft(firstCreated, projects, true)
         const aiDraft = { ...draft, categoryName: firstParsed?.categoryName ?? draft.categoryName }
         setDetailDraft(aiDraft)
         setDetailBaseline(JSON.stringify(aiDraft))
@@ -644,6 +664,23 @@ const App: React.FC = () => {
     if (!detailDraft) return
     const key = kind === 'start' ? 'startReminder' : 'dueReminder'
     setDetailDraft({ ...detailDraft, [key]: { ...detailDraft[key], ...updates } })
+  }
+
+  const updatePlannedTime = (kind: ReminderKind, value: string) => {
+    if (!detailDraft) return
+    if (kind === 'start') {
+      setDetailDraft({
+        ...detailDraft,
+        scheduledAt: value,
+        startReminder: reminderDraftForPlannedTime(value, detailDraft.scheduledAt, detailDraft.startReminder),
+      })
+      return
+    }
+    setDetailDraft({
+      ...detailDraft,
+      dueAt: value,
+      dueReminder: reminderDraftForPlannedTime(value, detailDraft.dueAt, detailDraft.dueReminder),
+    })
   }
 
   const renderReminderEditor = (kind: ReminderKind, label: string, baseAt: string) => {
@@ -870,7 +907,7 @@ const App: React.FC = () => {
         </nav>
 
         <button
-          onClick={() => requestDetailExit(() => { closeDetail(); setSettingsSection('ai'); setShowPage('settings'); clearSelection() })}
+          onClick={() => requestDetailExit(() => { closeDetail(); setSettingsSection('general'); setShowPage('settings'); clearSelection() })}
           style={{ margin: '10px', padding: '11px 12px', textAlign: 'left', color: 'white', background: showPage === 'settings' ? '#3498db' : 'transparent', border: '1px solid #4a6075', borderRadius: '6px', cursor: 'pointer' }}>
           ⚙️ 设置
         </button>
@@ -1089,6 +1126,7 @@ const App: React.FC = () => {
             <div style={{ maxWidth: '760px', margin: '0 auto' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', background: 'white', padding: '10px', borderRadius: '8px' }}>
                 {[
+                  { id: 'general' as const, label: '常规设置' },
                   { id: 'ai' as const, label: 'AI 设置' },
                   { id: 'data' as const, label: '数据管理' },
                   { id: 'trash' as const, label: '回收站' },
@@ -1102,6 +1140,8 @@ const App: React.FC = () => {
                   </button>
                 ))}
               </div>
+
+              {settingsSection === 'general' && <StartupSettingsPanel />}
 
               {settingsSection === 'ai' && (
                 <AISettingsPanel settings={aiSettings} onSaved={setAiSettings} />
@@ -1322,25 +1362,31 @@ const App: React.FC = () => {
                 <span className="task-detail-card__icon">◷</span>
                 <div><h3>计划时间</h3><p>安排开始、截止和 Windows 提醒</p></div>
                 {parentTask && (
-                  <button type="button" className="task-detail-sync" onClick={() => setDetailDraft({
-                    ...detailDraft,
-                    scheduledAt: parentTask.scheduledAt
+                  <button type="button" className="task-detail-sync" onClick={() => {
+                    const scheduledAt = parentTask.scheduledAt
                       ? toDateTimeLocal(parentTask.scheduledAt)
-                      : parentTask.scheduledDate ? `${parentTask.scheduledDate}T00:00` : '',
-                    dueAt: toDateTimeLocal(parentTask.dueAt),
-                  })}>与主任务同步</button>
+                      : parentTask.scheduledDate ? `${parentTask.scheduledDate}T00:00` : ''
+                    const dueAt = toDateTimeLocal(parentTask.dueAt)
+                    setDetailDraft({
+                      ...detailDraft,
+                      scheduledAt,
+                      dueAt,
+                      startReminder: reminderDraftForPlannedTime(scheduledAt, detailDraft.scheduledAt, detailDraft.startReminder),
+                      dueReminder: reminderDraftForPlannedTime(dueAt, detailDraft.dueAt, detailDraft.dueReminder),
+                    })
+                  }}>与主任务同步</button>
                 )}
               </div>
               <div className="task-detail-two-column task-detail-time-grid">
                 <div className="task-detail-field">
                   <label htmlFor="detail-start">计划开始时间</label>
                   <input id="detail-start" aria-label="计划开始时间" type="datetime-local" value={detailDraft.scheduledAt}
-                    onChange={(e) => setDetailDraft({ ...detailDraft, scheduledAt: e.target.value })} />
+                    onChange={(e) => updatePlannedTime('start', e.target.value)} />
                 </div>
                 <div className="task-detail-field">
                   <label htmlFor="detail-due">计划截止时间</label>
                   <input id="detail-due" aria-label="计划截止时间" type="datetime-local" value={detailDraft.dueAt}
-                    onChange={(e) => setDetailDraft({ ...detailDraft, dueAt: e.target.value })} />
+                    onChange={(e) => updatePlannedTime('due', e.target.value)} />
                 </div>
               </div>
               {warnings.length > 0 && <div data-testid="due-date-warning" className="task-detail-warning">⚠️ {warnings.join('; ')}</div>}
