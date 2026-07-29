@@ -714,13 +714,24 @@ export class SQLiteProjectRepository implements ProjectRepository {
   async create(request: CreateProjectRequest): Promise<Project> {
     const now = new Date().toISOString()
     const id = generateId()
+    const name = request.name.trim()
+    if (!name) throw new Error('分类名称不能为空')
+
+    const duplicate = await this.db.select<Array<{ id: string }>>(
+      'SELECT id FROM projects WHERE deleted_at IS NULL AND lower(name) = lower($1) LIMIT 1',
+      [name]
+    )
+    if (duplicate.length > 0) throw new Error('已存在同名分类')
+    const orderResult = await this.db.select<Array<{ nextOrder: number }>>(
+      'SELECT COALESCE(MAX(sort_order), -1) + 1 as "nextOrder" FROM projects WHERE deleted_at IS NULL'
+    )
 
     const project: Project = {
       id,
-      name: request.name.trim(),
+      name,
       color: request.color || null,
       icon: request.icon || null,
-      sortOrder: 0,
+      sortOrder: Number(orderResult[0]?.nextOrder ?? 0),
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -735,7 +746,6 @@ export class SQLiteProjectRepository implements ProjectRepository {
       )
       await addToSyncOutbox(this.db, 'project', id, 'create', project)
     })
-
     return project
   }
 
@@ -743,8 +753,7 @@ export class SQLiteProjectRepository implements ProjectRepository {
     const result = await this.db.select<Project[]>(
       `SELECT id, name, color, icon, sort_order as "sortOrder",
        created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"
-       FROM projects WHERE id = $1`,
-      [id]
+       FROM projects WHERE id = $1`, [id]
     )
     return result[0] || null
   }
@@ -763,39 +772,21 @@ export class SQLiteProjectRepository implements ProjectRepository {
     const values: unknown[] = []
     let paramIndex = 1
 
-    if (updates.name !== undefined) {
-      fields.push(`name = $${paramIndex++}`)
-      values.push(updates.name.trim())
-    }
-    if (updates.color !== undefined) {
-      fields.push(`color = $${paramIndex++}`)
-      values.push(updates.color)
-    }
-    if (updates.icon !== undefined) {
-      fields.push(`icon = $${paramIndex++}`)
-      values.push(updates.icon)
-    }
-    if (updates.sortOrder !== undefined) {
-      fields.push(`sort_order = $${paramIndex++}`)
-      values.push(updates.sortOrder)
-    }
-
+    if (updates.name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(updates.name.trim()) }
+    if (updates.color !== undefined) { fields.push(`color = $${paramIndex++}`); values.push(updates.color) }
+    if (updates.icon !== undefined) { fields.push(`icon = $${paramIndex++}`); values.push(updates.icon) }
+    if (updates.sortOrder !== undefined) { fields.push(`sort_order = $${paramIndex++}`); values.push(updates.sortOrder) }
     fields.push(`updated_at = $${paramIndex++}`)
     values.push(now)
     values.push(id)
 
     let project: Project
     await this.db.transaction(async () => {
-      await this.db.execute(
-        `UPDATE projects SET ${fields.join(', ')} WHERE id = $${paramIndex}`,
-        values
-      )
-
+      await this.db.execute(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${paramIndex}`, values)
       const result = await this.db.select<Project[]>(
         `SELECT id, name, color, icon, sort_order as "sortOrder",
          created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"
-         FROM projects WHERE id = $1`,
-        [id]
+         FROM projects WHERE id = $1`, [id]
       )
       if (!result[0]) throw new Error(`Project not found: ${id}`)
       project = result[0]
@@ -807,12 +798,38 @@ export class SQLiteProjectRepository implements ProjectRepository {
   async delete(id: string): Promise<void> {
     const now = new Date().toISOString()
     await this.db.transaction(async () => {
+      const affectedTasks = await this.db.select<Array<{ id: string }>>(
+        'SELECT id FROM tasks WHERE project_id = $1', [id]
+      )
       await this.db.execute(
-        `UPDATE projects SET deleted_at = $1, updated_at = $1 WHERE id = $2`,
+        'UPDATE tasks SET project_id = NULL, updated_at = $1, revision = revision + 1 WHERE project_id = $2',
         [now, id]
       )
+      for (const task of affectedTasks) {
+        await addToSyncOutbox(this.db, 'task', task.id, 'update', { projectId: null })
+      }
+      await this.db.execute('UPDATE projects SET deleted_at = $1, updated_at = $1 WHERE id = $2', [now, id])
       await addToSyncOutbox(this.db, 'project', id, 'update', { deletedAt: now })
     })
+  }
+
+  async reorder(ids: string[]): Promise<Project[]> {
+    const activeProjects = await this.findAll()
+    if (ids.length !== activeProjects.length || new Set(ids).size !== ids.length || activeProjects.some(project => !ids.includes(project.id))) {
+      throw new Error('分类排序数据无效')
+    }
+
+    const now = new Date().toISOString()
+    await this.db.transaction(async () => {
+      for (const [sortOrder, id] of ids.entries()) {
+        await this.db.execute(
+          'UPDATE projects SET sort_order = $1, updated_at = $2 WHERE id = $3 AND deleted_at IS NULL',
+          [sortOrder, now, id]
+        )
+        await addToSyncOutbox(this.db, 'project', id, 'update', { sortOrder, updatedAt: now })
+      }
+    })
+    return this.findAll()
   }
 }
 

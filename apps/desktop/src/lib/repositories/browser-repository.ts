@@ -466,13 +466,19 @@ export class BrowserProjectRepository implements ProjectRepository {
   async create(request: CreateProjectRequest): Promise<Project> {
     const db = getDb()
     const now = new Date().toISOString()
+    const name = request.name.trim()
+
+    if (!name) throw new Error('分类名称不能为空')
+    if (db.projects.some((project: Project) => !project.deletedAt && project.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      throw new Error('已存在同名分类')
+    }
 
     const project: Project = {
       id: generateId(),
-      name: request.name.trim(),
+      name,
       color: request.color || null,
       icon: request.icon || null,
-      sortOrder: db.projects.length,
+      sortOrder: Math.max(-1, ...db.projects.filter((item: Project) => !item.deletedAt).map((item: Project) => item.sortOrder)) + 1,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -490,22 +496,18 @@ export class BrowserProjectRepository implements ProjectRepository {
 
   async findAll(): Promise<Project[]> {
     const db = getDb()
-    return db.projects.filter((p: Project) => !p.deletedAt)
+    return db.projects
+      .filter((p: Project) => !p.deletedAt)
+      .sort((a: Project, b: Project) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
   }
 
   async update(id: string, updates: UpdateProjectRequest): Promise<Project> {
     const db = getDb()
     const now = new Date().toISOString()
     const index = db.projects.findIndex((p: Project) => p.id === id)
-
     if (index === -1) throw new Error(`Project not found: ${id}`)
 
-    db.projects[index] = {
-      ...db.projects[index],
-      ...updates,
-      updatedAt: now,
-    }
-
+    db.projects[index] = { ...db.projects[index], ...updates, updatedAt: now }
     saveDb(db)
     return db.projects[index]
   }
@@ -517,8 +519,28 @@ export class BrowserProjectRepository implements ProjectRepository {
 
     if (index !== -1) {
       db.projects[index].deletedAt = now
+      db.tasks = db.tasks.map((task: Task) => task.projectId === id
+        ? { ...task, projectId: null, updatedAt: now, revision: task.revision + 1 }
+        : task)
       saveDb(db)
     }
+  }
+
+  async reorder(ids: string[]): Promise<Project[]> {
+    const db = getDb()
+    const activeProjects = db.projects.filter((project: Project) => !project.deletedAt)
+    if (ids.length !== activeProjects.length || new Set(ids).size !== ids.length || activeProjects.some((project: Project) => !ids.includes(project.id))) {
+      throw new Error('分类排序数据无效')
+    }
+
+    const orderById = new Map(ids.map((id, index) => [id, index]))
+    const now = new Date().toISOString()
+    db.projects = db.projects.map((project: Project) => {
+      const sortOrder = orderById.get(project.id)
+      return sortOrder === undefined ? project : { ...project, sortOrder, updatedAt: now }
+    })
+    saveDb(db)
+    return this.findAll()
   }
 }
 

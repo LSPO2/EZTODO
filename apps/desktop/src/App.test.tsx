@@ -12,8 +12,10 @@ const mocks = vi.hoisted(() => ({
   undoLastBatch: vi.fn(), dismissUndoableBatch: vi.fn(), clearFilters: vi.fn(),
   setView: vi.fn(), setCurrentTask: vi.fn(), clearSelection: vi.fn(),
   createTask: vi.fn(), updateTask: vi.fn(), deleteTask: vi.fn(), completeTask: vi.fn(), createProject: vi.fn(),
+  deleteProject: vi.fn(), reorderProjects: vi.fn(),
   indentTask: vi.fn(), outdentTask: vi.fn(), reorderSiblingTasks: vi.fn(),
   taskState: { tasks: [] as Task[], currentTask: null as Task | null },
+  projectState: { projects: [{ id: 'p1', name: '分类一', icon: null, color: null, sortOrder: 0, createdAt: '', updatedAt: '', deletedAt: null }] },
 }))
 
 vi.mock('./stores/task-store', () => ({
@@ -33,7 +35,11 @@ vi.mock('./stores/task-store', () => ({
 }))
 
 vi.mock('./stores/project-store', () => ({
-  useProjectStore: () => ({ projects: [{ id: 'p1', name: '分类一', icon: null }], loadProjects: mocks.loadProjects, createProject: mocks.createProject }),
+  useProjectStore: () => ({
+    projects: mocks.projectState.projects, isLoading: false, error: null,
+    loadProjects: mocks.loadProjects, createProject: mocks.createProject,
+    deleteProject: mocks.deleteProject, reorderProjects: mocks.reorderProjects,
+  }),
 }))
 
 
@@ -46,6 +52,7 @@ describe('P0-2 App interactions', () => {
     clearSessionApiKey()
     mocks.taskState.tasks = []
     mocks.taskState.currentTask = null
+    mocks.projectState.projects = [{ id: 'p1', name: '分类一', icon: null, color: null, sortOrder: 0, createdAt: '', updatedAt: '', deletedAt: null }]
     mocks.createProject.mockResolvedValue({ id: 'new-category', name: '新分类' })
     mocks.createTask.mockResolvedValue({
       id: 'created-1', parentId: null, projectId: null, title: '新任务', note: null,
@@ -123,6 +130,36 @@ describe('P0-2 App interactions', () => {
     expect(mocks.setView).toHaveBeenCalledWith('trash')
   })
 
+  it('creates, deletes, and reorders categories from the sidebar manager', async () => {
+    mocks.projectState.projects = [
+      { id: 'p1', name: '分类一', icon: null, color: null, sortOrder: 0, createdAt: '', updatedAt: '', deletedAt: null },
+      { id: 'p2', name: '分类二', icon: null, color: null, sortOrder: 1, createdAt: '', updatedAt: '', deletedAt: null },
+    ]
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '管理分类' }))
+    expect(screen.getByRole('dialog', { name: '分类管理' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('新分类名称'), { target: { value: '工作' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建分类' }))
+    await waitFor(() => expect(mocks.createProject).toHaveBeenCalledWith({ name: '工作' }))
+
+    fireEvent.click(screen.getByRole('button', { name: '下移分类 分类一' }))
+    await waitFor(() => expect(mocks.reorderProjects).toHaveBeenCalledWith(['p2', 'p1']))
+
+    fireEvent.click(screen.getByRole('button', { name: '删除分类 分类一' }))
+    await waitFor(() => expect(mocks.deleteProject).toHaveBeenCalledWith('p1'))
+    expect(mocks.loadTasks).toHaveBeenCalled()
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('任务会保留并转为未分类'))
+  })
+
+  it('closes the category manager without changing categories', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '管理分类' }))
+    fireEvent.click(screen.getByRole('button', { name: '关闭分类管理' }))
+    expect(screen.queryByRole('dialog', { name: '分类管理' })).not.toBeInTheDocument()
+  })
   it('supports quick add and advanced draft save from the top input', async () => {
     render(<App />)
     const input = screen.getByLabelText('添加任务内容')

@@ -107,7 +107,7 @@ const App: React.FC = () => {
     undoLastBatch, dismissUndoableBatch, indentTask, outdentTask, copyTask, reorderSiblingTasks,
   } = useTaskStore()
 
-  const { projects, loadProjects, createProject } = useProjectStore()
+  const { projects, isLoading: projectsLoading, error: projectsError, loadProjects, createProject, deleteProject, reorderProjects } = useProjectStore()
   const [inputValue, setInputValue] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showPage, setShowPage] = useState<'tasks' | 'settings'>('tasks')
@@ -126,6 +126,9 @@ const App: React.FC = () => {
   const [pendingDetailExit, setPendingDetailExit] = useState<{ action: () => void; isAppExit: boolean; cancelAction?: () => void } | null>(null)
   const [completionChoiceTaskId, setCompletionChoiceTaskId] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [showCategoryManager, setShowCategoryManager] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [categoryManagerError, setCategoryManagerError] = useState<string | null>(null)
   const quickAddInputRef = useRef<HTMLInputElement>(null)
   const detailDraftSignature = detailDraft ? JSON.stringify(detailDraft) : null
   const hasUnsavedDetail = Boolean(showDetail && detailDraftSignature && detailBaseline !== null && detailDraftSignature !== detailBaseline)
@@ -171,6 +174,50 @@ const App: React.FC = () => {
   const parentTask = currentTask?.parentId
     ? tasks.find(task => task.id === currentTask.parentId) ?? null
     : null
+
+  // Category management
+  const handleCreateCategory = useCallback(async () => {
+    const name = newCategoryName.trim()
+    if (!name) { setCategoryManagerError('请输入分类名称'); return }
+    try {
+      await createProject({ name })
+      setNewCategoryName('')
+      setCategoryManagerError(null)
+      setToastMessage(`已创建分类“${name}”`)
+    } catch (error) {
+      setCategoryManagerError(error instanceof Error ? error.message : '创建分类失败')
+    }
+  }, [createProject, newCategoryName])
+
+  const handleDeleteCategory = useCallback(async (project: Project) => {
+    if (!window.confirm(`确定删除分类“${project.name}”吗？该分类下的任务会保留并转为未分类。`)) return
+    try {
+      await deleteProject(project.id)
+      if (filters.projectId === project.id) {
+        setView('today')
+        setFilters({ ...filters, projectId: undefined })
+      }
+      await loadTasks()
+      setCategoryManagerError(null)
+      setToastMessage(`已删除分类“${project.name}”`)
+    } catch (error) {
+      setCategoryManagerError(error instanceof Error ? error.message : '删除分类失败')
+    }
+  }, [deleteProject, filters, loadTasks, setFilters, setView])
+
+  const handleMoveCategory = useCallback(async (projectId: string, direction: -1 | 1) => {
+    const index = projects.findIndex(project => project.id === projectId)
+    const targetIndex = index + direction
+    if (index < 0 || targetIndex < 0 || targetIndex >= projects.length) return
+    const ids = projects.map(project => project.id)
+    ;[ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]]
+    try {
+      await reorderProjects(ids)
+      setCategoryManagerError(null)
+    } catch (error) {
+      setCategoryManagerError(error instanceof Error ? error.message : '分类排序失败')
+    }
+  }, [projects, reorderProjects])
 
   // Task operations
   const handleQuickAddTask = useCallback(async () => {
@@ -792,7 +839,14 @@ const App: React.FC = () => {
             </div>
           ))}
 
-          <div style={{ fontSize: '11px', opacity: 0.6, padding: '15px 10px 5px', textTransform: 'uppercase' }}>分类</div>
+          <div className="category-section-header">
+            <span>分类</span>
+            <button type="button" aria-label="管理分类" onClick={() => requestDetailExit(() => {
+              closeDetail()
+              setCategoryManagerError(null)
+              setShowCategoryManager(true)
+            })}>管理</button>
+          </div>
           {projects.length === 0 && (
             <div style={{ padding: '8px 12px', fontSize: '12px', opacity: 0.55 }}>暂无分类</div>
           )}
@@ -1107,6 +1161,59 @@ const App: React.FC = () => {
       </div>
 
       {toastMessage && <div className="app-toast" role="status">✓ {toastMessage}</div>}
+
+      {showCategoryManager && (
+        <div className="category-manager-backdrop" role="presentation">
+          <section className="category-manager" role="dialog" aria-modal="true" aria-labelledby="category-manager-title">
+            <header className="category-manager__header">
+              <div>
+                <span>ORGANIZE</span>
+                <h2 id="category-manager-title">分类管理</h2>
+                <p>快速创建、删除分类，或调整左侧栏显示顺序。</p>
+              </div>
+              <button type="button" aria-label="关闭分类管理" onClick={() => setShowCategoryManager(false)}>✕</button>
+            </header>
+
+            <form className="category-manager__create" onSubmit={(event) => { event.preventDefault(); void handleCreateCategory() }}>
+              <label htmlFor="new-category-name">新分类名称</label>
+              <div>
+                <input id="new-category-name" aria-label="新分类名称" value={newCategoryName}
+                  onChange={event => { setNewCategoryName(event.target.value); setCategoryManagerError(null) }}
+                  maxLength={80} autoFocus placeholder="例如：工作、学习、生活" />
+                <button type="submit" disabled={projectsLoading || !newCategoryName.trim()}>创建分类</button>
+              </div>
+            </form>
+
+            {(categoryManagerError || projectsError) && (
+              <div className="category-manager__error" role="alert">{categoryManagerError || projectsError}</div>
+            )}
+
+            <div className="category-manager__list" aria-label="分类排序列表">
+              {projects.length === 0 ? (
+                <div className="category-manager__empty">暂无分类，在上方输入名称即可创建。</div>
+              ) : projects.map((project, index) => (
+                <div className="category-manager__row" key={project.id}>
+                  <span className="category-manager__icon">{project.icon || '🏷️'}</span>
+                  <span className="category-manager__name">{project.name}</span>
+                  <div className="category-manager__order">
+                    <button type="button" aria-label={`上移分类 ${project.name}`} disabled={projectsLoading || index === 0}
+                      onClick={() => void handleMoveCategory(project.id, -1)}>↑</button>
+                    <button type="button" aria-label={`下移分类 ${project.name}`} disabled={projectsLoading || index === projects.length - 1}
+                      onClick={() => void handleMoveCategory(project.id, 1)}>↓</button>
+                  </div>
+                  <button type="button" className="category-manager__delete" aria-label={`删除分类 ${project.name}`}
+                    disabled={projectsLoading} onClick={() => void handleDeleteCategory(project)}>删除</button>
+                </div>
+              ))}
+            </div>
+
+            <footer className="category-manager__footer">
+              <span>删除分类不会删除任务，关联任务会转为未分类。</span>
+              <button type="button" onClick={() => setShowCategoryManager(false)}>完成</button>
+            </footer>
+          </section>
+        </div>
+      )}
 
       {completionChoiceTaskId && (
         <div className="app-dialog-backdrop" role="presentation">

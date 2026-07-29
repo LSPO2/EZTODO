@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { SQLiteTaskRepository, SQLiteTagRepository, type Database } from '../sqlite-repository'
-import type { Task } from '../types'
+import { SQLiteProjectRepository, SQLiteTaskRepository, SQLiteTagRepository, type Database } from '../sqlite-repository'
+import type { Project, Task } from '../types'
 
 function task(id: string): Task {
   return {
@@ -126,5 +126,71 @@ describe('SQLite transactional P0-2 batches', () => {
     expect(result.success).toBe(true)
     expect(fake.outboxParams).toHaveLength(2)
     expect(fake.outboxParams.every(params => params[4] === 'tag-batch')).toBe(true)
+  })
+})
+describe('SQLite category management', () => {
+  function project(id: string, name: string, sortOrder: number): Project {
+    return {
+      id, name, sortOrder, color: null, icon: null,
+      createdAt: '2026-07-29T00:00:00.000Z', updatedAt: '2026-07-29T00:00:00.000Z', deletedAt: null,
+    }
+  }
+
+  it('reorders every active category in one repository transaction', async () => {
+    let projects = [project('p1', '工作', 0), project('p2', '学习', 1)]
+    const execute = vi.fn(async (sql: string, params: unknown[] = []) => {
+      if (sql.startsWith('UPDATE projects SET sort_order')) {
+        const [sortOrder, updatedAt, id] = params as [number, string, string]
+        projects = projects.map(item => item.id === id ? { ...item, sortOrder, updatedAt } : item)
+      }
+      return { rowsAffected: 1 }
+    })
+    const select = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM projects')) return [...projects].sort((a, b) => a.sortOrder - b.sortOrder)
+      return []
+    })
+    const transaction = vi.fn(async <T>(fn: () => Promise<T>) => fn())
+    const repo = new SQLiteProjectRepository({ execute, select, transaction } as Database)
+
+    const reordered = await repo.reorder(['p2', 'p1'])
+
+    expect(transaction).toHaveBeenCalledTimes(1)
+    expect(reordered.map(item => item.id)).toEqual(['p2', 'p1'])
+    expect(execute.mock.calls.filter(call => String(call[0]).startsWith('UPDATE projects SET sort_order'))).toHaveLength(2)
+  })
+
+  it('keeps numbered SQLite placeholders when updating a category', async () => {
+    const stored = project('p1', '新名称', 0)
+    const execute = vi.fn(async (_sql: string, _params: unknown[] = []) => ({ rowsAffected: 1 }))
+    const select = vi.fn(async (sql: string) => sql.includes('FROM projects WHERE id') ? [stored] : [])
+    const transaction = vi.fn(async <T>(fn: () => Promise<T>) => fn())
+    const repo = new SQLiteProjectRepository({ execute, select, transaction } as Database)
+
+    await repo.update('p1', { name: '新名称' })
+
+    const updateSql = String(execute.mock.calls.find(call => String(call[0]).startsWith('UPDATE projects SET'))?.[0])
+    expect(updateSql).toContain('name = $1')
+    expect(updateSql).toContain('updated_at = $2')
+    expect(updateSql).toContain('WHERE id = $3')
+  })
+
+  it('keeps tasks and clears project references when deleting a category', async () => {
+    const outboxEntities: string[] = []
+    const execute = vi.fn(async (sql: string, params: unknown[] = []) => {
+      if (sql.includes('INSERT INTO sync_outbox')) outboxEntities.push(String(params[2]))
+      return { rowsAffected: 1 }
+    })
+    const select = vi.fn(async (sql: string) => sql.includes('SELECT id FROM tasks') ? [{ id: 'task-1' }] : [])
+    const transaction = vi.fn(async <T>(fn: () => Promise<T>) => fn())
+    const repo = new SQLiteProjectRepository({ execute, select, transaction } as Database)
+
+    await repo.delete('p1')
+
+    expect(transaction).toHaveBeenCalledTimes(1)
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE tasks SET project_id = NULL'),
+      expect.arrayContaining(['p1']),
+    )
+    expect(outboxEntities).toEqual(['task', 'project'])
   })
 })

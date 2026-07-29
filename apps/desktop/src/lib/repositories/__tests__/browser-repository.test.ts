@@ -125,4 +125,31 @@ describe('BrowserProjectRepository', () => {
     const projects = await repo.findAll()
     expect(projects.length).toBeGreaterThanOrEqual(2)
   })
+  it('persists category ordering', async () => {
+    const first = await repo.create({ name: 'First' })
+    const second = await repo.create({ name: 'Second' })
+
+    const reordered = await repo.reorder([second.id, first.id])
+
+    expect(reordered.map(project => project.id)).toEqual([second.id, first.id])
+    expect(reordered.map(project => project.sortOrder)).toEqual([0, 1])
+  })
+
+  it('keeps tasks and clears their category when deleting a category', async () => {
+    const taskRepo = new BrowserTaskRepository()
+    const category = await repo.create({ name: 'Temporary' })
+    const task = await taskRepo.create({ title: 'Keep me', projectId: category.id })
+
+    await repo.delete(category.id)
+
+    expect((await repo.findAll()).some(project => project.id === category.id)).toBe(false)
+    expect((await taskRepo.findById(task.id))?.projectId).toBeNull()
+  })
+
+  it('rejects empty and duplicate category names', async () => {
+    await repo.create({ name: 'Unique' })
+
+    await expect(repo.create({ name: '  ' })).rejects.toThrow('分类名称不能为空')
+    await expect(repo.create({ name: 'unique' })).rejects.toThrow('已存在同名分类')
+  })
 })

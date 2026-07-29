@@ -217,6 +217,7 @@ export interface ProjectRepository {
   findAll(): Promise<Project[]>
   update(id: string, updates: UpdateProjectRequest): Promise<Project>
   delete(id: string): Promise<void>
+  reorder(ids: string[]): Promise<Project[]>
 }
 
 export interface TagRepository {
